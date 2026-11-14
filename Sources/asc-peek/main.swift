@@ -7,6 +7,7 @@ import Foundation
 //        swift run asc-peek sales [yyyy-MM-dd]  the daily sales summary (default: yesterday)
 //        swift run asc-peek request-analytics   asks Apple to produce ongoing analytics reports for every app
 //        swift run asc-peek discovery           the store analytics instances per app, and the first lines
+//        swift run asc-peek report <path> k=v …  any gzipped report, e.g. report /v1/financeReports filter[reportType]=FINANCIAL …
 
 let folder = FileManager.default.homeDirectoryForCurrentUser.appending(path: ".appstoreconnect")
 let config = try JSONSerialization.jsonObject(with: Data(contentsOf: folder.appending(path: "config.json"))) as! [String: String]
@@ -38,6 +39,17 @@ if arguments.first == "sales" {
         "filter[vendorNumber]": config["vendorNumber"]!, "filter[reportDate]": day, "filter[version]": "1_1",
     ])
     print(String(decoding: try Gzip.unzip(data), as: UTF8.self))
+    exit(0)
+}
+
+if arguments.first == "report", let path = arguments.dropFirst().first {
+    var query: [String: String] = [:]
+    for pair in arguments.dropFirst(2) {
+        let parts = pair.split(separator: "=", maxSplits: 1).map(String.init)
+        if parts.count == 2 { query[parts[0]] = parts[1] }
+    }
+    query["filter[vendorNumber]"] = config["vendorNumber"]!
+    print(String(decoding: try Gzip.unzip(try await client.get(path, query: query)), as: UTF8.self))
     exit(0)
 }
 

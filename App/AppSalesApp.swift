@@ -4,6 +4,10 @@ import SwiftUI
 struct AppSalesApp: App {
     @State private var dashboard = Dashboard()
     @AppStorage("welcomeSeen") private var welcomeSeen = false
+
+    init() {
+        Notifier.register()
+    }
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
@@ -22,6 +26,7 @@ struct AppSalesApp: App {
             .task { await dashboard.refresh() }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { Task { await dashboard.refresh() } }
+                if phase == .background { Notifier.schedule() }
             }
         }
     }

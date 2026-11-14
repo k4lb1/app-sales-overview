@@ -4,8 +4,8 @@ import WidgetKit
 
 @MainActor @Observable
 final class Dashboard {
-    /// How far back the app looks. The 30-day view needs 30 daily reports.
-    static let maxDays = 30
+    /// The longest period is 90 days, compared with the 90 before.
+    static let maxDays = 180
 
     private(set) var account: Account?
     private(set) var figures = Figures()
@@ -82,11 +82,26 @@ final class Dashboard {
             figures.days = try await ReportCache.days(ReportDay.recent(Self.maxDays), client: client, vendor: account.vendorNumber)
             figures.rates = await Rates.current()
             WidgetCenter.shared.reloadAllTimelines()
+            await loadMoney(client: client, vendor: account.vendorNumber)
             await loadIcons()
             await loadReviews(client: client)
             await loadDiscovery(client: client)
+            await Notifier.notice(figures, reviews: reviews, notify: false)
         } catch {
             self.error = String(describing: error)
+        }
+    }
+
+    /// The last 12 months of sales and of Apple's financial reports, and the active subscriptions.
+    private func loadMoney(client: Client, vendor: String) async {
+        let months = ReportDay.recentMonths(12)
+        figures.months = await MonthCache.months("months", months) { try await client.salesReport(vendor: vendor, month: $0) }
+        figures.payouts = await MonthCache.months("payouts", months) { try await client.financeReport(vendor: vendor, month: $0) }
+        for day in ReportDay.recent(3) {
+            if let rows = try? await client.subscriptionReport(vendor: vendor, day: day) {
+                figures.subscriptions = rows
+                break
+            }
         }
     }
 

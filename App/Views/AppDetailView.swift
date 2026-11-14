@@ -21,6 +21,12 @@ struct AppDetailView: View {
                     figure("Updates", "\(dashboard.figures.units(.update, days: 30, app: app))")
                 }
                 figure("Proceeds", dashboard.figures.proceedsText(days: 30, app: app))
+                if dashboard.figures.activeSubscriptions(app: app) + dashboard.figures.trials(app: app) > 0 {
+                    HStack(spacing: 12) {
+                        figure("Subscriptions", "\(dashboard.figures.activeSubscriptions(app: app))")
+                        figure("Per month", dashboard.figures.monthlyRecurring(app: app).formatted(.currency(code: DisplayCurrency.current).precision(.fractionLength(0))))
+                    }
+                }
                 if !dashboard.figures.discovery.isEmpty {
                     HStack(spacing: 12) {
                         figure("Impressions", "\(dashboard.figures.impressions(days: 30, app: app))")

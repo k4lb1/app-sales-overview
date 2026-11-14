@@ -5,6 +5,8 @@ struct SettingsView: View {
     @State private var currency = DisplayCurrency.current
     @State private var confirmsRemoval = false
     @AppStorage("welcomeSeen") private var welcomeSeen = true
+    @State private var notifications = Dictionary(uniqueKeysWithValues: Notifier.Kind.allCases.map { ($0, Notifier.isOn($0)) })
+    @State private var notificationsDenied = false
 
     private static let version: String = {
         let info = Bundle.main.infoDictionary
@@ -23,6 +25,30 @@ struct SettingsView: View {
                 Text("Proceeds")
             } footer: {
                 Text("Apple pays each country in its own currency. The totals are converted with the European Central Bank's daily rates.")
+            }
+
+            Section {
+                ForEach(Notifier.Kind.allCases, id: \.self) { kind in
+                    Toggle(isOn: Binding(get: { notifications[kind] ?? false }, set: { on in
+                        notifications[kind] = on
+                        Task {
+                            let result = await Notifier.set(kind, on: on)
+                            notifications[kind] = result
+                            notificationsDenied = on && !result
+                        }
+                    })) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(kind.title)
+                            Text(kind.detail).font(.caption).foregroundStyle(Color.muted)
+                        }
+                    }
+                }
+            } header: {
+                Text("Notifications")
+            } footer: {
+                Text(notificationsDenied
+                     ? "Notifications are off for App Sales in the iPhone's Settings."
+                     : "Checked in the background when iOS allows it, so a notification can come a little later.")
             }
 
             if dashboard.isDemo {

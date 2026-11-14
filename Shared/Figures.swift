@@ -7,26 +7,49 @@ struct Figures {
     var rates = Rates.cached()
     /// How the apps were seen in the store (analytics). Empty until Apple delivers the first reports.
     var discovery: [DiscoveryRow] = []
+    /// Month ("yyyy-MM") → its monthly sales summary.
+    var months: [String: [SalesRow]] = [:]
+    /// Fiscal month ("yyyy-MM") → what Apple's financial report says was earned.
+    var payouts: [String: [FinanceRow]] = [:]
+    /// Active subscriptions as of the newest day Apple reported.
+    var subscriptions: [SubscriptionRow] = []
 
     var latestDay: String? { days.keys.max() }
 
     var pending: [StoreApp] { apps.filter { $0.pending != nil } }
 
-    func reportedDays(_ count: Int) -> [String] {
-        Array(days.keys.sorted(by: >).prefix(count))
+    /// `count` reported days, newest first. `previous` takes the `count` days before those, for comparing.
+    func reportedDays(_ count: Int, previous: Bool = false) -> [String] {
+        Array(days.keys.sorted(by: >).dropFirst(previous ? count : 0).prefix(count))
     }
 
-    func rows(_ count: Int, app: StoreApp? = nil) -> [SalesRow] {
-        reportedDays(count).flatMap { days[$0] ?? [] }.filter { belongs($0, to: app) }
+    func rows(_ count: Int, app: StoreApp? = nil, previous: Bool = false) -> [SalesRow] {
+        reportedDays(count, previous: previous).flatMap { days[$0] ?? [] }.filter { belongs($0, to: app) }
     }
 
-    func units(_ kind: SalesKind, days count: Int, app: StoreApp? = nil) -> Int {
-        rows(count, app: app).filter { $0.kind == kind }.reduce(0) { $0 + $1.units }
+    /// Refunds are left out here and counted by `refunds`.
+    func units(_ kind: SalesKind, days count: Int, app: StoreApp? = nil, previous: Bool = false) -> Int {
+        rows(count, app: app, previous: previous).filter { $0.kind == kind && !$0.isRefund }.reduce(0) { $0 + $1.units }
+    }
+
+    func refunds(days count: Int, app: StoreApp? = nil) -> Int {
+        -rows(count, app: app).filter(\.isRefund).reduce(0) { $0 + $1.units }
+    }
+
+    /// The change against the period before, e.g. 0.18 for 18 % more. Nil while the period before isn't complete.
+    func change(_ current: Double, _ previous: Double, days count: Int) -> Double? {
+        guard reportedDays(count, previous: true).count == count, previous > 0 else { return nil }
+        return current / previous - 1
     }
 
     /// Proceeds per currency; Apple reports each country's sales in its own currency.
-    func proceeds(days count: Int, app: StoreApp? = nil) -> [String: Double] {
-        Self.sums(rows(count, app: app))
+    func proceeds(days count: Int, app: StoreApp? = nil, previous: Bool = false) -> [String: Double] {
+        Self.sums(rows(count, app: app, previous: previous))
+    }
+
+    /// The proceeds in the display currency, without the currencies the ECB doesn't list.
+    func proceedsTotal(days count: Int, app: StoreApp? = nil, previous: Bool = false) -> Double {
+        rates.total(proceeds(days: count, app: app, previous: previous), in: DisplayCurrency.current).total
     }
 
     /// The proceeds as one amount in the display currency, e.g. "€1.98". Currencies the ECB doesn't list are added as they are.
@@ -40,9 +63,49 @@ struct Figures {
     func downloadsPerDay(_ count: Int, app: StoreApp? = nil) -> [(day: Date, units: Int)] {
         reportedDays(count).reversed().compactMap { day in
             guard let date = ReportDay.date(day) else { return nil }
-            let units = (days[day] ?? []).filter { $0.kind == .download && belongs($0, to: app) }.reduce(0) { $0 + $1.units }
+            let units = (days[day] ?? []).filter { $0.kind == .download && !$0.isRefund && belongs($0, to: app) }.reduce(0) { $0 + $1.units }
             return (date, units)
         }
+    }
+
+    /// Downloads and proceeds of the last months, oldest first.
+    func monthly(app: StoreApp? = nil) -> [(month: Date, downloads: Int, proceeds: Double)] {
+        months.keys.sorted().compactMap { month in
+            guard let date = ReportDay.date(month + "-01") else { return nil }
+            let rows = (months[month] ?? []).filter { belongs($0, to: app) }
+            let downloads = rows.filter { $0.kind == .download && !$0.isRefund }.reduce(0) { $0 + $1.units }
+            return (date, downloads, rates.total(Self.sums(rows), in: DisplayCurrency.current).total)
+        }
+    }
+
+    // MARK: Payouts
+
+    /// What Apple's financial reports say each fiscal month earned, newest first, in the display currency.
+    /// Apple pays a month within 33 days of its end, into the account's bank currency at Apple's own rate.
+    func payoutMonths() -> [(month: Date, amount: Double, expected: Date)] {
+        payouts.keys.sorted(by: >).compactMap { month in
+            guard let start = ReportDay.date(month + "-01"),
+                  let end = Calendar(identifier: .gregorian).date(byAdding: DateComponents(month: 1, day: -1), to: start) else { return nil }
+            let sums = (payouts[month] ?? []).reduce(into: [String: Double]()) { $0[$1.currency, default: 0] += $1.amount }
+            return (start, rates.total(sums, in: DisplayCurrency.current).total, end.addingTimeInterval(33 * 86_400))
+        }
+    }
+
+    // MARK: Subscriptions
+
+    func activeSubscriptions(app: StoreApp? = nil) -> Int {
+        subscriptions.filter { app == nil || $0.appID == app!.id }.reduce(0) { $0 + $1.active + $1.offers }
+    }
+
+    func trials(app: StoreApp? = nil) -> Int {
+        subscriptions.filter { app == nil || $0.appID == app!.id }.reduce(0) { $0 + $1.trials }
+    }
+
+    /// Monthly recurring revenue: the proceeds of the paid subscriptions at their standard price, per month.
+    func monthlyRecurring(app: StoreApp? = nil) -> Double {
+        let sums = subscriptions.filter { app == nil || $0.appID == app!.id }
+            .reduce(into: [String: Double]()) { $0[$1.currency, default: 0] += $1.proceeds * Double($1.active) * $1.perMonth }
+        return rates.total(sums, in: DisplayCurrency.current).total
     }
 
     /// The newest `count` days the analytics cover, newest first. They lag a day or two behind the sales.
@@ -98,7 +161,7 @@ struct Figures {
             for app in apps {
                 let sales = (days[day] ?? []).filter { belongs($0, to: app) }
                 let store = discovery.filter { $0.date == day && $0.appID == app.id }
-                let downloads = sales.filter { $0.kind == .download }.reduce(0) { $0 + $1.units }
+                let downloads = sales.filter { $0.kind == .download && !$0.isRefund }.reduce(0) { $0 + $1.units }
                 let updates = sales.filter { $0.kind == .update }.reduce(0) { $0 + $1.units }
                 let redownloads = sales.filter { $0.kind == .redownload }.reduce(0) { $0 + $1.units }
                 let impressions = store.filter { $0.event == "Impression" }.reduce(0) { $0 + $1.counts }

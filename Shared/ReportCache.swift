@@ -39,11 +39,14 @@ enum ReportCache {
         try? data.write(to: folder.appending(path: "apps.json"), options: .atomic)
     }
 
+    /// When the key changes, the old account's reports go.
     static func clear() {
-        try? FileManager.default.removeItem(at: folder)
+        for kind in ["reports", "analytics", "months", "payouts"] {
+            try? FileManager.default.removeItem(at: AppGroup.folder.appending(path: kind))
+        }
     }
 
-    /// The given days from disk, the missing ones from Apple, four at a time. Days Apple hasn't
+    /// The given days from disk, the missing ones from Apple, six at a time. Days Apple hasn't
     /// reported yet are left out.
     static func days(_ wanted: [String], client: Client, vendor: String) async throws -> [String: [SalesRow]] {
         var result: [String: [SalesRow]] = [:]
@@ -60,7 +63,7 @@ enum ReportCache {
                     catch SalesReportError.notYet { return (day, nil) }
                 }
             }
-            for _ in 0..<4 { next() }
+            for _ in 0..<6 { next() }
             for try await (day, rows) in group {
                 if let rows {
                     result[day] = rows
@@ -111,5 +114,41 @@ enum AnalyticsCache {
             }
         }
         return rows
+    }
+}
+
+/// Monthly sales and financial reports on disk, one file per month. A month that's reported doesn't change.
+enum MonthCache {
+    private static func folder(_ kind: String) -> URL {
+        let url = AppGroup.folder.appending(path: kind)
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    static func load<Row: Decodable>(_ kind: String, _ month: String) -> [Row]? {
+        guard let data = try? Data(contentsOf: folder(kind).appending(path: "\(month).json")) else { return nil }
+        return try? JSONDecoder().decode([Row].self, from: data)
+    }
+
+    static func save<Row: Encodable>(_ rows: [Row], _ kind: String, _ month: String) {
+        guard let data = try? JSONEncoder().encode(rows) else { return }
+        try? data.write(to: folder(kind).appending(path: "\(month).json"), options: .atomic)
+    }
+
+    /// The months from disk, the rest from Apple. A financial month can come out empty before Apple has published it,
+    /// so an empty month is only kept once it's two months past.
+    static func months<Row: Codable & Sendable>(_ kind: String, _ wanted: [String],
+                                                fetch: @escaping @Sendable (String) async throws -> [Row]) async -> [String: [Row]] {
+        let settled = ReportDay.recentMonths(2).last ?? ""
+        var result: [String: [Row]] = [:]
+        for month in wanted {
+            if let rows: [Row] = load(kind, month) {
+                result[month] = rows
+            } else if let rows = try? await fetch(month) {
+                result[month] = rows
+                if !rows.isEmpty || month < settled { save(rows, kind, month) }
+            }
+        }
+        return result
     }
 }

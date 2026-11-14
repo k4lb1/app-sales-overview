@@ -19,6 +19,8 @@ public struct SalesRow: Codable, Hashable, Sendable {
     public var kind: SalesKind { SalesKind(productType) }
     /// The app this line counts for: the app itself, or the parent of an in-app purchase.
     public var appSKU: String { parentSKU.isEmpty ? sku : parentSKU }
+    /// Apple reports refunds as lines with negative units.
+    public var isRefund: Bool { units < 0 }
 }
 
 /// What a line stands for, from Apple's product type identifier.
@@ -44,10 +46,20 @@ public enum SalesReportError: Error {
 extension Client {
     /// The daily sales summary for one day (Pacific time, as Apple counts days). Empty when there were no sales.
     public func salesReport(vendor: String, day: String) async throws -> [SalesRow] {
+        try await salesReport(vendor: vendor, frequency: "DAILY", date: day)
+    }
+
+    /// The monthly sales summary for one month ("yyyy-MM").
+    public func salesReport(vendor: String, month: String) async throws -> [SalesRow] {
+        try await salesReport(vendor: vendor, frequency: "MONTHLY", date: month)
+    }
+
+    private func salesReport(vendor: String, frequency: String, date: String) async throws -> [SalesRow] {
         do {
             let data = try await get("/v1/salesReports", query: [
-                "filter[frequency]": "DAILY", "filter[reportType]": "SALES", "filter[reportSubType]": "SUMMARY",
-                "filter[vendorNumber]": vendor, "filter[reportDate]": day, "filter[version]": "1_1",
+                "filter[frequency]": frequency, "filter[reportType]": "SALES", "filter[reportSubType]": "SUMMARY",
+                // Apple versions the reports separately; the monthly summary is still at 1_0.
+                "filter[vendorNumber]": vendor, "filter[reportDate]": date, "filter[version]": frequency == "MONTHLY" ? "1_0" : "1_1",
             ])
             return SalesRow.parse(String(decoding: try Gzip.unzip(data), as: UTF8.self))
         } catch ASCError.http(404, let body) {
@@ -103,6 +115,14 @@ public enum ReportDay {
         formatter.timeZone = timeZone
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.date(from: day)
+    }
+
+    /// The `count` months before this one, newest first, as "yyyy-MM".
+    public static func recentMonths(_ count: Int, from now: Date = .now) -> [String] {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        return (1...max(1, count)).compactMap { calendar.date(byAdding: .month, value: -$0, to: now) }
+            .map { String(string($0).prefix(7)) }
     }
 
     /// The `count` days before today (Pacific), newest first: yesterday, the day before, …

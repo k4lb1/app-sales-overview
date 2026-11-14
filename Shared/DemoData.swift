@@ -4,7 +4,7 @@ import Foundation
 /// see it before creating one. Invented, and the same every time for the same day.
 enum DemoData {
     static let key = "demo"
-    static let days = 30
+    static let days = 180
 
     static var isOn: Bool {
         get { UserDefaults(suiteName: AppGroup.id)?.bool(forKey: key) ?? false }
@@ -65,6 +65,12 @@ enum DemoData {
                                          productType: "1", units: units, proceeds: (price * 0.85 * 100).rounded() / 100,
                                          proceedsCurrency: price > 0 ? country.currency : "", country: country.code, device: "iPhone"))
                 }
+                // Now and then someone asks for their money back.
+                if sample.price > 0, random.next(0, 1) < 0.08 {
+                    rows.append(SalesRow(title: sample.name, sku: "demo\(index)", appleID: "demo\(index)", parentSKU: "",
+                                         productType: "1", units: -1, proceeds: (sample.price * 0.85 * 100).rounded() / 100,
+                                         proceedsCurrency: "USD", country: "US", device: "iPhone"))
+                }
                 let updates = Int(total * random.next(0.3, 0.8))
                 if updates > 0 {
                     rows.append(SalesRow(title: sample.name, sku: "demo\(index)", appleID: "demo\(index)", parentSKU: "",
@@ -86,7 +92,33 @@ enum DemoData {
             }
             reports[day] = rows
         }
-        return Figures(apps: apps, days: reports, rates: Rates.cached(), discovery: discovery)
+        // Months and payouts: the apps' monthly totals, growing over the year; Moss sells a subscription.
+        var months: [String: [SalesRow]] = [:]
+        var payouts: [String: [FinanceRow]] = [:]
+        for (age, month) in ReportDay.recentMonths(12, from: now).enumerated() {
+            let growth = 0.55 + 0.45 * Double(12 - age) / 12
+            var monthRows: [SalesRow] = []
+            var earned = 0.0
+            for (index, sample) in samples.enumerated() where sample.versions.contains(where: { $0.state == "READY_FOR_DISTRIBUTION" }) {
+                let units = Int(sample.downloads * 30 * growth * random.next(0.85, 1.15))
+                let proceeds = (sample.price * 0.85 * 100).rounded() / 100
+                monthRows.append(SalesRow(title: sample.name, sku: "demo\(index)", appleID: "demo\(index)", parentSKU: "", productType: "1",
+                                          units: units, proceeds: proceeds, proceedsCurrency: proceeds > 0 ? "USD" : "",
+                                          country: "US", device: "iPhone"))
+                earned += proceeds * Double(units)
+            }
+            months[month] = monthRows
+            payouts[month] = [FinanceRow(title: "All apps", appleID: "", quantity: 0, amount: (earned * 100).rounded() / 100,
+                                         currency: "USD", country: "US")]
+        }
+        let subscriptions = [
+            SubscriptionRow(appID: "demo1", name: "Moss Plus Monthly", duration: "1 Month", proceeds: 2.54, currency: "USD",
+                            country: "US", active: 184, trials: 23, offers: 0),
+            SubscriptionRow(appID: "demo1", name: "Moss Plus Yearly", duration: "1 Year", proceeds: 21.24, currency: "USD",
+                            country: "US", active: 412, trials: 0, offers: 9),
+        ]
+        return Figures(apps: apps, days: reports, rates: Rates.cached(), discovery: discovery,
+                       months: months, payouts: payouts, subscriptions: subscriptions)
     }
 
     static func reviews(now: Date = .now) -> [Review] {
