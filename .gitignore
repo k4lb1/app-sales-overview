@@ -1,0 +1,5 @@
+.DS_Store
+.build/
+*.p8
+xcuserdata/
+APPSTORE.md

@@ -1,0 +1,120 @@
+import Foundation
+import Observation
+import WidgetKit
+
+@MainActor @Observable
+final class Dashboard {
+    /// How far back the app looks. The 30-day view needs 30 daily reports.
+    static let maxDays = 30
+
+    private(set) var account: Account?
+    private(set) var figures = Figures()
+    private(set) var isLoading = false
+    private(set) var error: String?
+    private(set) var icons: [String: URL] = [:]
+    private(set) var reviews: [Review] = []
+    /// Why there are no analytics, when Apple refused them (a key without the Admin role).
+    private(set) var analyticsError: String?
+
+    init() {
+        account = KeyStore.load()
+        if account != nil { figures.apps = ReportCache.loadApps() }
+    }
+
+    var isSetUp: Bool { account != nil || isDemo }
+    private(set) var isDemo = DemoData.isOn
+
+    func startDemo() {
+        DemoData.isOn = true
+        isDemo = true
+        Task { await refresh() }
+    }
+
+    func stopDemo() {
+        DemoData.isOn = false
+        isDemo = false
+        figures = Figures()
+        reviews = []
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    func connect(_ account: Account) async throws {
+        // Checks the key before keeping it: a wrong key or ID fails here, with Apple's message.
+        _ = try await Client(key: account.key).apps()
+        if self.account != account { ReportCache.clear() }
+        if isDemo { stopDemo() }
+        KeyStore.save(account)
+        self.account = account
+        figures = Figures()
+        await refresh()
+    }
+
+    func disconnect() {
+        KeyStore.delete()
+        ReportCache.clear()
+        account = nil
+        figures = Figures()
+        icons = [:]
+        reviews = []
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    func refresh() async {
+        if isDemo {
+            figures = DemoData.figures()
+            figures.rates = await Rates.current()
+            reviews = DemoData.reviews()
+            WidgetCenter.shared.reloadAllTimelines()
+            return
+        }
+        guard let account, !isLoading else { return }
+        isLoading = true
+        error = nil
+        defer { isLoading = false }
+        do {
+            let client = try Client(key: account.key)
+            let apps = try await client.apps()
+            ReportCache.saveApps(apps)
+            figures.apps = apps
+            figures.days = try await ReportCache.days(ReportDay.recent(Self.maxDays), client: client, vendor: account.vendorNumber)
+            figures.rates = await Rates.current()
+            WidgetCenter.shared.reloadAllTimelines()
+            await loadIcons()
+            await loadReviews(client: client)
+            await loadDiscovery(client: client)
+        } catch {
+            self.error = String(describing: error)
+        }
+    }
+
+    private func loadReviews(client: Client) async {
+        var all: [Review] = []
+        for app in figures.apps {
+            all += (try? await client.reviews(appID: app.id)) ?? []
+        }
+        reviews = all.sorted { $0.date > $1.date }
+    }
+
+    private func loadDiscovery(client: Client) async {
+        do {
+            figures.discovery = try await AnalyticsCache.discovery(apps: figures.apps, days: Self.maxDays, client: client)
+            analyticsError = nil
+        } catch ASCError.http(403, _) {
+            analyticsError = String(localized: "Store analytics need a key with the Admin role.")
+        } catch {
+            analyticsError = String(describing: error)
+        }
+    }
+
+    func currencyChanged() {
+        // The figures read the currency when they're shown; touching them redraws what shows an amount.
+        figures.rates = figures.rates
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    private func loadIcons() async {
+        for app in figures.apps where icons[app.id] == nil && app.live != nil {
+            if let url = await Client.iconURL(appID: app.id) { icons[app.id] = url }
+        }
+    }
+}
