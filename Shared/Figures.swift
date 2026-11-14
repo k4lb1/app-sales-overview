@@ -255,15 +255,21 @@ struct Figures {
         }
     }
 
-    /// A dot as the decimal separator, so every spreadsheet reads it as a number.
+    /// Spreadsheets read a CSV the way the region's spreadsheets write one: where the decimal separator is a comma,
+    /// as in Germany, fields are separated by semicolons.
+    private static var decimalComma: Bool { Locale.current.decimalSeparator == "," }
+
     static func amount(_ value: Double) -> String {
-        String(format: "%.2f", value)
+        let text = String(format: "%.2f", value)
+        return decimalComma ? text.replacingOccurrences(of: ".", with: ",") : text
     }
 
+    /// Starts with a byte order mark, without which Excel reads UTF-8 as an older encoding and garbles "–" and umlauts.
     static func csv(_ lines: [[String]]) -> String {
-        lines.map { fields in
-            fields.map { $0.contains(where: { ",\"\n".contains($0) }) ? "\"" + $0.replacingOccurrences(of: "\"", with: "\"\"") + "\"" : $0 }
-                .joined(separator: ",")
+        let separator = decimalComma ? ";" : ","
+        return "\u{FEFF}" + lines.map { fields in
+            fields.map { $0.contains(where: { (separator + "\"\n").contains($0) }) ? "\"" + $0.replacingOccurrences(of: "\"", with: "\"\"") + "\"" : $0 }
+                .joined(separator: separator)
         }.joined(separator: "\n") + "\n"
     }
 }
