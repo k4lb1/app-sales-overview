@@ -173,6 +173,14 @@ struct Figures {
         .sorted { $0.day < $1.day }
     }
 
+    /// "yyyy-MM-dd" + app ID → the versions released that day, for the exports.
+    func releasesByDay() -> [String: String] {
+        releases().reduce(into: [:]) { result, release in
+            let key = ReportDay.string(release.day) + release.app.id
+            result[key] = [result[key], release.version].compactMap(\.self).joined(separator: " ")
+        }
+    }
+
     /// First-time downloads since the app came out, as far as the reports reach: Apple's monthly summaries
     /// for the last twelve months, and the daily reports for the days after them.
     func lifetimeDownloads(app: StoreApp) -> Int {
@@ -201,7 +209,9 @@ struct Figures {
     /// One line per day and app: what the overview shows, for a spreadsheet.
     func dailyCSV(days count: Int) -> String {
         let currency = DisplayCurrency.current
-        var lines = [["Date", "App", "Downloads", "Updates", "Redownloads", "Refunds", "Proceeds (\(currency))", "Impressions", "Product page views"]]
+        let released = releasesByDay()
+        var lines = [["Date", "App", "Release", "Downloads", "Updates", "Redownloads", "Refunds", "Proceeds (\(currency))",
+                      "Impressions", "Product page views"]]
         for day in reportedDays(count).reversed() {
             for app in apps {
                 let sales = (days[day] ?? []).filter { belongs($0, to: app) }
@@ -213,7 +223,7 @@ struct Figures {
                 let impressions = store.filter { $0.event == "Impression" }.reduce(0) { $0 + $1.counts }
                 let pageViews = store.filter { $0.event == "Page view" && $0.pageType == "Product page" }.reduce(0) { $0 + $1.counts }
                 guard downloads + updates + redownloads + refunds + impressions + pageViews > 0 else { continue }
-                lines.append([day, app.name, "\(downloads)", "\(updates)", "\(redownloads)", "\(refunds)",
+                lines.append([day, app.name, released[day + app.id] ?? "", "\(downloads)", "\(updates)", "\(redownloads)", "\(refunds)",
                               Self.amount(rates.total(Self.sums(sales), in: currency).total), "\(impressions)", "\(pageViews)"])
             }
         }

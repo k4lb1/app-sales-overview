@@ -167,9 +167,13 @@ extension Figures {
         }
         let salesDays = Set(reportedDays(count)), storeDays = discoveryDays(count)
         let header = metrics.map { $0 == .proceeds ? "\($0.title) (\(DisplayCurrency.current))" : $0.title }
-        var lines = [["Date"] + (perApp ? ["App"] : []) + (split == .none ? [] : [split.title]) + header]
+        // Every line is one app's (by the app column, or by the split), so it can say which version came out that day.
+        let released = releasesByDay()
+        let ids = Dictionary(apps.map { ($0.name, $0.id) }, uniquingKeysWith: { first, _ in first })
+        var lines = [["Date"] + (perApp ? ["App"] : []) + (split == .none ? [] : [split.title]) + ["Release"] + header]
         for key in values.keys.sorted() {
-            let parts = key.components(separatedBy: "\t")
+            var parts = key.components(separatedBy: "\t")
+            parts.append(ids[parts[1]].flatMap { released[parts[0] + $0] } ?? "")
             let columns = metrics.map { metric in
                 guard (metric.isStore ? storeDays : salesDays).contains(parts[0]) else { return "" }
                 let value = values[key]?[metric] ?? 0

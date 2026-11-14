@@ -71,14 +71,10 @@ struct OverviewView: View {
     }
 
     private var chart: some View {
-        let points = dashboard.figures.downloadsPerDay(period)
-        return Chart {
-            ForEach(points, id: \.day) { point in
-                BarMark(x: .value("Day", point.day, unit: .day), y: .value("Downloads", point.units))
-                    .foregroundStyle(Color.sales)
-                    .cornerRadius(period > 30 ? 1 : 3)
-            }
-            ReleaseMarks(releases: dashboard.figures.releases(), from: points.first?.day)
+        Chart(dashboard.figures.downloadsPerDay(period), id: \.day) { point in
+            BarMark(x: .value("Day", point.day, unit: .day), y: .value("Downloads", point.units))
+                .foregroundStyle(Color.sales)
+                .cornerRadius(period > 30 ? 1 : 3)
         }
         .chartYAxis { AxisMarks(position: .leading) }
         .frame(height: 140)
@@ -205,33 +201,5 @@ struct ChangeLabel: View {
         Text("\(up ? "▲" : "▼") \(abs(change).formatted(.percent.precision(.fractionLength(0))))")
             .foregroundStyle(up ? Color.green : Color.red)
             .accessibilityLabel("\(up ? "Up" : "Down") \(abs(change).formatted(.percent.precision(.fractionLength(0)))) on the \(period == 1 ? "day" : "\(period) days") before")
-    }
-}
-
-/// A dashed line on the day a version went live, labelled with it, to see what an update did.
-struct ReleaseMarks: ChartContent {
-    let releases: [(app: StoreApp, version: String, day: Date)]
-    /// The chart's first day; earlier releases are left out.
-    let from: Date?
-    var showsApp = true
-
-    var body: some ChartContent {
-        let visible = releases.filter { release in from.map { release.day >= $0 } ?? false }
-        ForEach(visible.indices, id: \.self) { index in
-            let release = visible[index]
-            RuleMark(x: .value("Release", release.day, unit: .day))
-                .lineStyle(StrokeStyle(lineWidth: 1, dash: [3, 3]))
-                .foregroundStyle(Color.white.opacity(0.45))
-                .annotation(position: .top, alignment: .leading, spacing: 2,
-                            overflowResolution: .init(x: .fit(to: .chart), y: .disabled)) {
-                    Text(showsApp ? "\(Self.short(release.app.name)) \(release.version)" : release.version)
-                        .font(.system(size: 9)).foregroundStyle(Color.muted)
-                }
-        }
-    }
-
-    /// "Tideline – Tide Tables" → "Tideline".
-    private static func short(_ name: String) -> String {
-        name.components(separatedBy: " – ").first?.components(separatedBy: " - ").first ?? name
     }
 }

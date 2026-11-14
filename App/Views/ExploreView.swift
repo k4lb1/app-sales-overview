@@ -95,13 +95,9 @@ struct ExploreView: View {
         let groups = exploration.chartedGroups()
         return VStack(alignment: .leading, spacing: 10) {
             Text(total(exploration)).font(.title.weight(.semibold)).monospacedDigit()
-            let points = exploration.charted()
-            Chart {
-                ForEach(points) { point in
-                    BarMark(x: .value("Day", point.day, unit: .day), y: .value(metric.title, point.value))
-                        .foregroundStyle(by: .value(split.title, point.group))
-                }
-                ReleaseMarks(releases: dashboard.figures.releases(app: app), from: points.first?.day, showsApp: app == nil)
+            Chart(exploration.charted()) { point in
+                BarMark(x: .value("Day", point.day, unit: .day), y: .value(metric.title, point.value))
+                    .foregroundStyle(by: .value(split.title, point.group))
             }
             .chartForegroundStyleScale(domain: groups, range: Self.shades(groups.count))
             .chartLegend(split == .none ? .hidden : .visible)
