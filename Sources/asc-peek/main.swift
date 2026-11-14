@@ -5,6 +5,7 @@ import Foundation
 // Usage: swift run asc-peek                     apps, versions, reviews
 //        swift run asc-peek raw <path> k=v …    e.g. raw /v1/apps limit=5
 //        swift run asc-peek post <path> <file>  posts the JSON in <file>, e.g. to create a localization
+//        swift run asc-peek patch <path> <file> sends the JSON in <file> as a change, e.g. to store texts
 //        swift run asc-peek sales [yyyy-MM-dd]  the daily sales summary (default: yesterday)
 //        swift run asc-peek request-analytics   asks Apple to produce ongoing analytics reports for every app
 //        swift run asc-peek discovery           the store analytics instances per app, and the first lines
@@ -38,9 +39,10 @@ if arguments.first == "raw", let path = arguments.dropFirst().first {
     exit(0)
 }
 
-if arguments.first == "post", let path = arguments.dropFirst().first, let file = arguments.dropFirst(2).first {
+if ["post", "patch"].contains(arguments.first), let path = arguments.dropFirst().first, let file = arguments.dropFirst(2).first {
     let body = try JSONSerialization.jsonObject(with: Data(contentsOf: URL(filePath: file))) as! [String: Any]
-    print(String(decoding: try await client.post(path, json: body), as: UTF8.self))
+    let data = arguments.first == "post" ? try await client.post(path, json: body) : try await client.patch(path, json: body)
+    print(String(decoding: data, as: UTF8.self))
     exit(0)
 }
 

@@ -56,8 +56,17 @@ public struct Client: Sendable {
 
     /// Sends a JSON body, for the few things the app creates (the analytics report requests).
     public func post(_ path: String, json body: [String: Any]) async throws -> Data {
+        try await send("POST", path, json: body)
+    }
+
+    /// Changes a resource; `asc-peek` uses it for store texts.
+    public func patch(_ path: String, json body: [String: Any]) async throws -> Data {
+        try await send("PATCH", path, json: body)
+    }
+
+    private func send(_ method: String, _ path: String, json body: [String: Any]) async throws -> Data {
         var request = URLRequest(url: Self.base.appending(path: path))
-        request.httpMethod = "POST"
+        request.httpMethod = method
         request.setValue("Bearer \(try token())", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
