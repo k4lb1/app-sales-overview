@@ -151,6 +151,51 @@ struct Figures {
         return row.appSKU == app.sku || row.appleID == app.id
     }
 
+    // MARK: Releases and milestones
+
+    /// The day each version first shows up in the sales reports, which is the day it went live. Versions already there on
+    /// the oldest day are left out: they were released before.
+    func releases(app: StoreApp? = nil) -> [(app: StoreApp, version: String, day: Date)] {
+        let sorted = days.keys.sorted()
+        guard let oldest = sorted.first else { return [] }
+        var firstSeen: [String: [String: String]] = [:]
+        for day in sorted {
+            for row in days[day] ?? [] where row.kind != .purchase && !(row.version ?? "").isEmpty {
+                guard let owner = apps.first(where: { belongs(row, to: $0) }), app == nil || owner.id == app!.id else { continue }
+                if firstSeen[owner.id]?[row.version!] == nil { firstSeen[owner.id, default: [:]][row.version!] = day }
+            }
+        }
+        return apps.flatMap { app in
+            (firstSeen[app.id] ?? [:]).compactMap { version, day in
+                day == oldest ? nil : ReportDay.date(day).map { (app, version, $0) }
+            }
+        }
+        .sorted { $0.day < $1.day }
+    }
+
+    /// First-time downloads since the app came out, as far as the reports reach: Apple's monthly summaries
+    /// for the last twelve months, and the daily reports for the days after them.
+    func lifetimeDownloads(app: StoreApp) -> Int {
+        let monthly = months.values.joined().filter { belongs($0, to: app) && $0.kind == .download && !$0.isRefund }
+            .reduce(0) { $0 + $1.units }
+        let newestMonth = months.keys.max() ?? ""
+        let daily = days.filter { String($0.key.prefix(7)) > newestMonth }.values.joined()
+            .filter { belongs($0, to: app) && $0.kind == .download && !$0.isRefund }.reduce(0) { $0 + $1.units }
+        return monthly + daily
+    }
+
+    // MARK: Countries
+
+    /// What a first-time download brought in per country, in the display currency. Countries without downloads are left out.
+    func proceedsPerDownload(days count: Int, app: StoreApp? = nil) -> [String: Double] {
+        let byCountry = Dictionary(grouping: rows(count, app: app), by: \.country)
+        return byCountry.compactMapValues { rows in
+            let downloads = Self.units(rows).downloads
+            guard downloads > 0 else { return nil }
+            return rates.total(Self.sums(rows), in: DisplayCurrency.current).total / Double(downloads)
+        }
+    }
+
     // MARK: Export
 
     /// One line per day and app: what the overview shows, for a spreadsheet.
@@ -178,7 +223,8 @@ struct Figures {
     /// One line per app and country over the period.
     func countriesCSV(days count: Int) -> String {
         let currency = DisplayCurrency.current
-        var lines = [["App", "Country", "Country code", "Downloads", "Updates", "Redownloads", "Refunds", "Proceeds (\(currency))"]]
+        var lines = [["App", "Country", "Country code", "Downloads", "Updates", "Redownloads", "Refunds", "Proceeds (\(currency))",
+                      "Proceeds per download (\(currency))"]]
         for app in apps {
             let byCountry = Dictionary(grouping: rows(count, app: app), by: \.country)
             for (country, sales) in byCountry.sorted(by: { $0.key < $1.key }) {
@@ -186,7 +232,8 @@ struct Figures {
                 let proceeds = rates.total(Self.sums(sales), in: currency).total
                 guard units.downloads + units.updates + units.redownloads + units.refunds > 0 || proceeds != 0 else { continue }
                 lines.append([app.name, Self.countryName(country), country, "\(units.downloads)", "\(units.updates)",
-                              "\(units.redownloads)", "\(units.refunds)", Self.amount(proceeds)])
+                              "\(units.redownloads)", "\(units.refunds)", Self.amount(proceeds),
+                              units.downloads > 0 ? Self.amount(proceeds / Double(units.downloads)) : ""])
             }
         }
         return Self.csv(lines)
@@ -236,7 +283,7 @@ struct Figures {
         code.count == 2 ? Locale.current.localizedString(forRegionCode: code) ?? code : code
     }
 
-    private static func units(_ rows: [SalesRow]) -> (downloads: Int, updates: Int, redownloads: Int, refunds: Int) {
+    static func units(_ rows: [SalesRow]) -> (downloads: Int, updates: Int, redownloads: Int, refunds: Int) {
         rows.reduce(into: (0, 0, 0, 0)) { sums, row in
             if row.isRefund { sums.3 -= row.units; return }
             switch row.kind {
@@ -248,7 +295,7 @@ struct Figures {
         }
     }
 
-    private static func sums(_ rows: [SalesRow]) -> [String: Double] {
+    static func sums(_ rows: [SalesRow]) -> [String: Double] {
         rows.reduce(into: [:]) { sums, row in
             guard row.proceeds != 0, !row.proceedsCurrency.isEmpty else { return }
             sums[row.proceedsCurrency, default: 0] += row.proceeds * Double(row.units)

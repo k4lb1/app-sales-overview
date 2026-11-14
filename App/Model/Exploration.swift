@@ -131,6 +131,24 @@ extension Figures {
         }
     }
 
+    /// The average day per weekday, Monday first. Days without anything count as 0, so a quiet Sunday shows.
+    func weekdays(_ metric: Metric, days count: Int, app: StoreApp? = nil) -> [(weekday: String, average: Double)] {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = ReportDay.timeZone
+        calendar.locale = .current
+        let covered = (metric.isStore ? Array(discoveryDays(count)) : reportedDays(count)).compactMap(ReportDay.date)
+        guard !covered.isEmpty else { return [] }
+        var totals = [Double](repeating: 0, count: 7), counts = [Int](repeating: 0, count: 7)
+        let values = explore(metric, by: .none, days: count, app: app).points.reduce(into: [Date: Double]()) { $0[$1.day, default: 0] += $1.value }
+        for day in covered {
+            let index = (calendar.component(.weekday, from: day) + 5) % 7
+            totals[index] += values[day] ?? 0
+            counts[index] += 1
+        }
+        let symbols = calendar.shortWeekdaySymbols
+        return (0..<7).map { index in (symbols[(index + 1) % 7], counts[index] > 0 ? totals[index] / Double(counts[index]) : 0) }
+    }
+
     /// Every metric that can be split this way, one column each, so the file holds more than the chart.
     /// The store analytics lag behind the sales, so a day either source hasn't covered yet stays empty rather than 0.
     func exploreCSV(by split: Split, days count: Int, app: StoreApp?) -> String {

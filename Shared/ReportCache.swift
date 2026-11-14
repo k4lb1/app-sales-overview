@@ -18,9 +18,12 @@ enum ReportCache {
         return url
     }
 
+    /// A day saved before the app read the version column is fetched again, for the release marks in the charts.
     static func load(_ day: String) -> [SalesRow]? {
-        guard let data = try? Data(contentsOf: folder.appending(path: "\(day).json")) else { return nil }
-        return try? JSONDecoder().decode([SalesRow].self, from: data)
+        guard let data = try? Data(contentsOf: folder.appending(path: "\(day).json")),
+              let rows = try? JSONDecoder().decode([SalesRow].self, from: data),
+              rows.isEmpty || rows.contains(where: { $0.version != nil }) else { return nil }
+        return rows
     }
 
     static func save(_ rows: [SalesRow], for day: String) {

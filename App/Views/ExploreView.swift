@@ -35,6 +35,7 @@ struct ExploreView: View {
                 } else {
                     chart(exploration)
                     if split != .none { ranking(exploration) }
+                    weekdays
                 }
             }
             .padding(16)
@@ -94,9 +95,13 @@ struct ExploreView: View {
         let groups = exploration.chartedGroups()
         return VStack(alignment: .leading, spacing: 10) {
             Text(total(exploration)).font(.title.weight(.semibold)).monospacedDigit()
-            Chart(exploration.charted()) { point in
-                BarMark(x: .value("Day", point.day, unit: .day), y: .value(metric.title, point.value))
-                    .foregroundStyle(by: .value(split.title, point.group))
+            let points = exploration.charted()
+            Chart {
+                ForEach(points) { point in
+                    BarMark(x: .value("Day", point.day, unit: .day), y: .value(metric.title, point.value))
+                        .foregroundStyle(by: .value(split.title, point.group))
+                }
+                ReleaseMarks(releases: dashboard.figures.releases(app: app), from: points.first?.day, showsApp: app == nil)
             }
             .chartForegroundStyleScale(domain: groups, range: Self.shades(groups.count))
             .chartLegend(split == .none ? .hidden : .visible)
@@ -117,6 +122,10 @@ struct ExploreView: View {
                         Spacer()
                         Text(formatted(entry.value)).monospacedDigit()
                     }
+                    if let each = perDownload[entry.group] {
+                        Text("\(each.formatted(.currency(code: DisplayCurrency.current))) per download")
+                            .font(.caption).foregroundStyle(Color.muted)
+                    }
                     GeometryReader { proxy in
                         Capsule().fill(Color.sales).frame(width: max(2, proxy.size.width * entry.value / max(largest, 1)))
                     }
@@ -128,6 +137,32 @@ struct ExploreView: View {
             }
         }
         .card()
+    }
+
+    /// Per country, what a download brings in: shown with downloads and proceeds split by country.
+    private var perDownload: [String: Double] {
+        guard split == .country, metric == .downloads || metric == .proceeds else { return [:] }
+        let byCode = dashboard.figures.proceedsPerDownload(days: period, app: app)
+        return Dictionary(byCode.map { (Figures.countryName($0.key), $0.value) }, uniquingKeysWith: { $1 })
+    }
+
+    @ViewBuilder
+    private var weekdays: some View {
+        let days = dashboard.figures.weekdays(metric, days: period, app: app)
+        if period >= 14, !days.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("By weekday").font(.headline)
+                Chart(days, id: \.weekday) { day in
+                    BarMark(x: .value("Weekday", day.weekday), y: .value("Average", day.average))
+                        .foregroundStyle(Color.sales)
+                        .cornerRadius(3)
+                }
+                .chartYAxis { AxisMarks(position: .leading) }
+                .frame(height: 120)
+                Text("An average day, over the \(period) days.").font(.caption).foregroundStyle(Color.muted)
+            }
+            .card()
+        }
     }
 
     private func total(_ exploration: Exploration) -> String {

@@ -9,13 +9,14 @@ import UserNotifications
 /// A refresh while the app is open updates what was seen without notifying: the user is looking anyway.
 enum Notifier {
     enum Kind: String, CaseIterable {
-        case status, reviews, summary
+        case status, reviews, summary, milestones
 
         var title: String {
             switch self {
             case .status: "Review status"
             case .reviews: "New reviews"
             case .summary: "Yesterday's numbers"
+            case .milestones: "Milestones"
             }
         }
 
@@ -24,6 +25,7 @@ enum Notifier {
             case .status: "When a version goes into review, is approved or rejected."
             case .reviews: "When someone reviews one of your apps."
             case .summary: "In the morning, once Apple has the new day."
+            case .milestones: "When an app reaches 10, 100, 1,000 … downloads."
             }
         }
     }
@@ -76,8 +78,10 @@ enum Notifier {
         if isOn(.reviews) {
             for app in apps { reviews += (try? await client.reviews(appID: app.id, limit: 5)) ?? [] }
         }
-        let days = (try? await ReportCache.days(ReportDay.recent(2), client: client, vendor: account.vendorNumber)) ?? [:]
-        await notice(Figures(apps: apps, days: days, rates: await Rates.current()), reviews: reviews, notify: true)
+        // The days of this month and the last, and the monthly reports on disk: enough for the milestones.
+        let days = (try? await ReportCache.days(ReportDay.recent(62), client: client, vendor: account.vendorNumber)) ?? [:]
+        let months = ReportDay.recentMonths(12).reduce(into: [String: [SalesRow]]()) { $0[$1] = MonthCache.load("months", $1) }
+        await notice(Figures(apps: apps, days: days, rates: await Rates.current(), months: months), reviews: reviews, notify: true)
     }
 
     // MARK: Changes
@@ -116,6 +120,17 @@ enum Notifier {
             defaults?.set(latest, forKey: "seen.day")
         }
 
+        var reached = defaults?.dictionary(forKey: "seen.milestones") as? [String: Int] ?? [:]
+        for app in figures.apps {
+            let downloads = figures.lifetimeDownloads(app: app)
+            guard let milestone = Self.milestones.last(where: { $0 <= downloads }) else { continue }
+            if let before = reached[app.id], milestone > before {
+                messages.append((.milestones, app.name, "\(milestone.formatted()) downloads. Well done."))
+            }
+            reached[app.id] = max(milestone, reached[app.id] ?? 0)
+        }
+        defaults?.set(reached, forKey: "seen.milestones")
+
         guard notify else { return }
         for message in messages where isOn(message.kind) {
             let content = UNMutableNotificationContent()
@@ -124,6 +139,8 @@ enum Notifier {
             try? await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil))
         }
     }
+
+    private static let milestones = [10, 25, 50, 100, 250, 500, 1_000, 2_500, 5_000, 10_000, 25_000, 50_000, 100_000, 250_000, 1_000_000]
 
     private static func statusMessage(app: StoreApp, version: StoreApp.Version) -> (title: String, body: String)? {
         let name = "\(app.name) \(version.string)"

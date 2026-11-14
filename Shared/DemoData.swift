@@ -16,17 +16,24 @@ enum DemoData {
         let downloads: Double
         let price: Double
         let versions: [StoreApp.Version]
+        /// The live version came out this many days ago; before, the reports show `previous`.
+        var released = 0
+        var previous = ""
+
+        var live: String { versions.first { $0.state == "READY_FOR_DISTRIBUTION" }?.string ?? "" }
     }
 
     private static let samples = [
         Sample(name: "Tideline – Tide Tables", downloads: 38, price: 2.99,
-               versions: [.init(string: "2.4.0", state: "IN_REVIEW"), .init(string: "2.3.1", state: "READY_FOR_DISTRIBUTION")]),
+               versions: [.init(string: "2.4.0", state: "IN_REVIEW"), .init(string: "2.3.1", state: "READY_FOR_DISTRIBUTION")],
+               released: 12, previous: "2.3.0"),
         Sample(name: "Moss – Habit Garden", downloads: 61, price: 0,
-               versions: [.init(string: "1.8.2", state: "READY_FOR_DISTRIBUTION")]),
+               versions: [.init(string: "1.8.2", state: "READY_FOR_DISTRIBUTION")], released: 40, previous: "1.8.1"),
         Sample(name: "Quillnote", downloads: 24, price: 4.99,
-               versions: [.init(string: "3.0", state: "WAITING_FOR_REVIEW"), .init(string: "2.9.4", state: "READY_FOR_DISTRIBUTION")]),
+               versions: [.init(string: "3.0", state: "WAITING_FOR_REVIEW"), .init(string: "2.9.4", state: "READY_FOR_DISTRIBUTION")],
+               released: 75, previous: "2.9.3"),
         Sample(name: "Kiln Timer", downloads: 12, price: 1.99,
-               versions: [.init(string: "1.2", state: "READY_FOR_DISTRIBUTION")]),
+               versions: [.init(string: "1.2", state: "READY_FOR_DISTRIBUTION")], released: 25, previous: "1.1"),
         Sample(name: "Fieldbook – Bird Log", downloads: 9, price: 0,
                versions: [.init(string: "1.0", state: "PREPARE_FOR_SUBMISSION")]),
     ]
@@ -57,24 +64,27 @@ enum DemoData {
             var rows: [SalesRow] = []
             for (index, sample) in samples.enumerated() where sample.versions.contains(where: { $0.state == "READY_FOR_DISTRIBUTION" }) {
                 let total = sample.downloads * trend * weekend * random.next(0.7, 1.3)
+                let version = offset < sample.released ? sample.live : sample.previous
                 for country in countries {
                     let units = Int((total * country.share * random.next(0.5, 1.5)).rounded())
                     guard units > 0 else { continue }
                     let price = sample.price * country.rate
                     rows.append(SalesRow(title: sample.name, sku: "demo\(index)", appleID: "demo\(index)", parentSKU: "",
                                          productType: "1", units: units, proceeds: (price * 0.85 * 100).rounded() / 100,
-                                         proceedsCurrency: price > 0 ? country.currency : "", country: country.code, device: "iPhone"))
+                                         proceedsCurrency: price > 0 ? country.currency : "", country: country.code, device: "iPhone",
+                                         version: version, customerPrice: (price * 100).rounded() / 100, customerCurrency: country.currency))
                 }
                 // Now and then someone asks for their money back.
                 if sample.price > 0, random.next(0, 1) < 0.08 {
                     rows.append(SalesRow(title: sample.name, sku: "demo\(index)", appleID: "demo\(index)", parentSKU: "",
                                          productType: "1", units: -1, proceeds: (sample.price * 0.85 * 100).rounded() / 100,
-                                         proceedsCurrency: "USD", country: "US", device: "iPhone"))
+                                         proceedsCurrency: "USD", country: "US", device: "iPhone", version: version))
                 }
                 let updates = Int(total * random.next(0.3, 0.8))
                 if updates > 0 {
                     rows.append(SalesRow(title: sample.name, sku: "demo\(index)", appleID: "demo\(index)", parentSKU: "",
-                                         productType: "7", units: updates, proceeds: 0, proceedsCurrency: "", country: "US", device: "iPhone"))
+                                         productType: "7", units: updates, proceeds: 0, proceedsCurrency: "", country: "US", device: "iPhone",
+                                         version: version))
                 }
                 // Store analytics lag two days behind the sales, as Apple's do.
                 if offset >= 2 {
