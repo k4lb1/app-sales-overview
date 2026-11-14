@@ -18,6 +18,8 @@ final class Dashboard {
 
     init() {
         account = KeyStore.load()
+        let saved = UserDefaults(suiteName: AppGroup.id)?.dictionary(forKey: "icons") as? [String: String] ?? [:]
+        icons = saved.compactMapValues(URL.init(string:))
         if account != nil { figures.apps = ReportCache.loadApps() }
     }
 
@@ -55,6 +57,7 @@ final class Dashboard {
         account = nil
         figures = Figures()
         icons = [:]
+        UserDefaults(suiteName: AppGroup.id)?.removeObject(forKey: "icons")
         reviews = []
         WidgetCenter.shared.reloadAllTimelines()
     }
@@ -112,9 +115,13 @@ final class Dashboard {
         WidgetCenter.shared.reloadAllTimelines()
     }
 
+    /// Icon URLs are kept, so they show right away on the next launch.
     private func loadIcons() async {
+        let region = Locale.current.region?.identifier.lowercased() ?? "us"
+        let storefronts = [region] + ["us", "de", "gb", "fr", "jp"].filter { $0 != region }
         for app in figures.apps where icons[app.id] == nil && app.live != nil {
-            if let url = await Client.iconURL(appID: app.id) { icons[app.id] = url }
+            if let url = await Client.iconURL(appID: app.id, storefronts: storefronts) { icons[app.id] = url }
         }
+        UserDefaults(suiteName: AppGroup.id)?.set(icons.mapValues(\.absoluteString), forKey: "icons")
     }
 }

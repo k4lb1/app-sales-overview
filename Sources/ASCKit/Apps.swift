@@ -40,13 +40,17 @@ extension Client {
         }
     }
 
-    /// The store icon, from Apple's public lookup. Nil for apps that aren't in the store yet.
-    public static func iconURL(appID: String) async -> URL? {
-        guard let url = URL(string: "https://itunes.apple.com/lookup?id=\(appID)"),
-              let (data, _) = try? await URLSession.shared.data(from: url),
-              let lookup = try? JSONDecoder().decode(Lookup.self, from: data),
-              let artwork = lookup.results.first?.artworkUrl512 ?? lookup.results.first?.artworkUrl100 else { return nil }
-        return URL(string: artwork)
+    /// The store icon, from Apple's public lookup. An app is found only in a storefront that sells it, so this asks
+    /// the given ones in turn (the device's own first). Nil for apps that aren't in the store yet.
+    public static func iconURL(appID: String, storefronts: [String]) async -> URL? {
+        for storefront in storefronts {
+            guard let url = URL(string: "https://itunes.apple.com/lookup?id=\(appID)&country=\(storefront)"),
+                  let (data, _) = try? await URLSession.shared.data(from: url),
+                  let lookup = try? JSONDecoder().decode(Lookup.self, from: data),
+                  let artwork = lookup.results.first?.artworkUrl512 ?? lookup.results.first?.artworkUrl100 else { continue }
+            return URL(string: artwork)
+        }
+        return nil
     }
 }
 
