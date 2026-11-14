@@ -26,10 +26,7 @@ struct Figures {
 
     /// Proceeds per currency; Apple reports each country's sales in its own currency.
     func proceeds(days count: Int, app: StoreApp? = nil) -> [String: Double] {
-        rows(count, app: app).reduce(into: [:]) { sums, row in
-            guard row.proceeds != 0, !row.proceedsCurrency.isEmpty else { return }
-            sums[row.proceedsCurrency, default: 0] += row.proceeds * Double(row.units)
-        }
+        Self.sums(rows(count, app: app))
     }
 
     /// The proceeds as one amount in the display currency, e.g. "€1.98". Currencies the ECB doesn't list are added as they are.
@@ -89,5 +86,63 @@ struct Figures {
     private func belongs(_ row: SalesRow, to app: StoreApp?) -> Bool {
         guard let app else { return true }
         return row.appSKU == app.sku || row.appleID == app.id
+    }
+
+    // MARK: Export
+
+    /// One line per day and app: what the overview shows, for a spreadsheet.
+    func dailyCSV(days count: Int) -> String {
+        let currency = DisplayCurrency.current
+        var lines = [["Date", "App", "Downloads", "Updates", "Redownloads", "Proceeds (\(currency))", "Impressions", "Product page views"]]
+        for day in reportedDays(count).reversed() {
+            for app in apps {
+                let sales = (days[day] ?? []).filter { belongs($0, to: app) }
+                let store = discovery.filter { $0.date == day && $0.appID == app.id }
+                let downloads = sales.filter { $0.kind == .download }.reduce(0) { $0 + $1.units }
+                let updates = sales.filter { $0.kind == .update }.reduce(0) { $0 + $1.units }
+                let redownloads = sales.filter { $0.kind == .redownload }.reduce(0) { $0 + $1.units }
+                let impressions = store.filter { $0.event == "Impression" }.reduce(0) { $0 + $1.counts }
+                let pageViews = store.filter { $0.event == "Page view" && $0.pageType == "Product page" }.reduce(0) { $0 + $1.counts }
+                guard downloads + updates + redownloads + impressions + pageViews > 0 else { continue }
+                lines.append([day, app.name, "\(downloads)", "\(updates)", "\(redownloads)",
+                              Self.amount(rates.total(Self.sums(sales), in: currency).total), "\(impressions)", "\(pageViews)"])
+            }
+        }
+        return Self.csv(lines)
+    }
+
+    /// One line per app and country over the period.
+    func countriesCSV(days count: Int) -> String {
+        let currency = DisplayCurrency.current
+        var lines = [["App", "Country", "Downloads", "Proceeds (\(currency))"]]
+        for app in apps {
+            let byCountry = Dictionary(grouping: rows(count, app: app), by: \.country)
+            for (country, sales) in byCountry.sorted(by: { $0.key < $1.key }) {
+                let downloads = sales.filter { $0.kind == .download }.reduce(0) { $0 + $1.units }
+                let proceeds = rates.total(Self.sums(sales), in: currency).total
+                guard downloads > 0 || proceeds > 0 else { continue }
+                lines.append([app.name, country, "\(downloads)", Self.amount(proceeds)])
+            }
+        }
+        return Self.csv(lines)
+    }
+
+    private static func sums(_ rows: [SalesRow]) -> [String: Double] {
+        rows.reduce(into: [:]) { sums, row in
+            guard row.proceeds != 0, !row.proceedsCurrency.isEmpty else { return }
+            sums[row.proceedsCurrency, default: 0] += row.proceeds * Double(row.units)
+        }
+    }
+
+    /// A dot as the decimal separator, so every spreadsheet reads it as a number.
+    private static func amount(_ value: Double) -> String {
+        String(format: "%.2f", value)
+    }
+
+    private static func csv(_ lines: [[String]]) -> String {
+        lines.map { fields in
+            fields.map { $0.contains(where: { ",\"\n".contains($0) }) ? "\"" + $0.replacingOccurrences(of: "\"", with: "\"\"") + "\"" : $0 }
+                .joined(separator: ",")
+        }.joined(separator: "\n") + "\n"
     }
 }

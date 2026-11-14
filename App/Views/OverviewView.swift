@@ -28,6 +28,9 @@ struct OverviewView: View {
         }
         .background(Color.ground.ignoresSafeArea())
         .navigationTitle("Overview")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) { ExportMenu(days: period) }
+        }
         .refreshable { await dashboard.refresh() }
         .overlay {
             if dashboard.isLoading && dashboard.figures.apps.isEmpty { ProgressView() }
