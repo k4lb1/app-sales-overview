@@ -135,15 +135,21 @@ extension Figures {
     /// The store analytics lag behind the sales, so a day either source hasn't covered yet stays empty rather than 0.
     func exploreCSV(by split: Split, days count: Int, app: StoreApp?) -> String {
         let metrics = Metric.allCases.filter { $0.splits.contains(split) }
+        // One line per app as well, unless the split already is the app.
+        let perApp = split != .app
+        let scopes: [StoreApp?] = perApp ? app.map { [$0] } ?? apps : [app]
         var values: [String: [Metric: Double]] = [:]
         for metric in metrics {
-            for point in explore(metric, by: split, days: count, app: app).points {
-                values[ReportDay.string(point.day) + "\t" + (split == .none ? "" : point.group), default: [:]][metric] = point.value
+            for app in scopes {
+                for point in explore(metric, by: split, days: count, app: app).points {
+                    let key = [ReportDay.string(point.day)] + (perApp ? [app?.name ?? ""] : []) + (split == .none ? [] : [point.group])
+                    values[key.joined(separator: "\t"), default: [:]][metric] = point.value
+                }
             }
         }
         let salesDays = Set(reportedDays(count)), storeDays = discoveryDays(count)
         let header = metrics.map { $0 == .proceeds ? "\($0.title) (\(DisplayCurrency.current))" : $0.title }
-        var lines = [(split == .none ? ["Date"] : ["Date", split.title]) + header]
+        var lines = [["Date"] + (perApp ? ["App"] : []) + (split == .none ? [] : [split.title]) + header]
         for key in values.keys.sorted() {
             let parts = key.components(separatedBy: "\t")
             let columns = metrics.map { metric in
@@ -151,7 +157,7 @@ extension Figures {
                 let value = values[key]?[metric] ?? 0
                 return metric == .proceeds ? Self.amount(value) : String(Int(value))
             }
-            lines.append((split == .none ? [parts[0]] : parts) + columns)
+            lines.append(parts + columns)
         }
         return Self.csv(lines)
     }

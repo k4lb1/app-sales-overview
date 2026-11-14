@@ -15,6 +15,11 @@ public struct SalesRow: Codable, Hashable, Sendable {
     public var proceedsCurrency: String
     public var country: String
     public var device: String
+    /// The app version the line was sold or downloaded at. Missing in reports cached before it was read.
+    public var version: String? = nil
+    /// What the customer paid per unit, in `customerCurrency`.
+    public var customerPrice: Double? = nil
+    public var customerCurrency: String? = nil
 
     public var kind: SalesKind { SalesKind(productType) }
     /// The app this line counts for: the app itself, or the parent of an in-app purchase.
@@ -79,7 +84,8 @@ extension SalesRow {
         let title = column("Title"), sku = column("SKU"), appleID = column("Apple Identifier"),
             parent = column("Parent Identifier"), type = column("Product Type Identifier"), units = column("Units"),
             proceeds = column("Developer Proceeds"), currency = column("Currency of Proceeds"),
-            country = column("Country Code"), device = column("Device")
+            country = column("Country Code"), device = column("Device"), version = column("Version"),
+            price = column("Customer Price"), customerCurrency = column("Customer Currency")
         func value(_ fields: [String], _ index: Int?) -> String {
             guard let index, index < fields.count else { return "" }
             return fields[index].trimmingCharacters(in: .whitespaces)
@@ -90,7 +96,8 @@ extension SalesRow {
                             parentSKU: value(fields, parent), productType: value(fields, type),
                             units: Int(value(fields, units)) ?? 0, proceeds: Double(value(fields, proceeds)) ?? 0,
                             proceedsCurrency: value(fields, currency), country: value(fields, country),
-                            device: value(fields, device))
+                            device: value(fields, device), version: value(fields, version),
+                            customerPrice: Double(value(fields, price)), customerCurrency: value(fields, customerCurrency))
         }
     }
 }

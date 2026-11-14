@@ -195,15 +195,16 @@ struct Figures {
     /// Every line of Apple's daily reports in the period, for pivot tables: day, app, country, device and product.
     func salesCSV(days count: Int) -> String {
         let currency = DisplayCurrency.current
-        var lines = [["Date", "App", "Product", "Type", "Country", "Device", "Units", "Proceeds per unit", "Currency",
-                      "Proceeds (\(currency))"]]
+        var lines = [["Date", "App", "Product", "Version", "Type", "Country", "Device", "Units", "Customer price",
+                      "Customer currency", "Proceeds per unit", "Currency", "Proceeds (\(currency))"]]
         for day in reportedDays(count).reversed() {
             for row in (days[day] ?? []).sorted(by: { ($0.appSKU, $0.country, $0.device) < ($1.appSKU, $1.country, $1.device) }) {
                 let app = apps.first { belongs(row, to: $0) }?.name ?? row.title
                 let total = row.proceedsCurrency.isEmpty ? 0
                     : rates.total([row.proceedsCurrency: row.proceeds * Double(row.units)], in: currency).total
-                lines.append([day, app, row.title, row.isRefund ? "refund" : row.kind.rawValue, row.country, row.device,
-                              "\(row.units)", Self.amount(row.proceeds), row.proceedsCurrency, Self.amount(total)])
+                lines.append([day, app, row.title, row.version ?? "", row.isRefund ? "refund" : row.kind.rawValue, row.country,
+                              row.device, "\(row.units)", row.customerPrice.map(Self.amount) ?? "", row.customerCurrency ?? "",
+                              Self.amount(row.proceeds), row.proceedsCurrency, Self.amount(total)])
             }
         }
         return Self.csv(lines)
