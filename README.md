@@ -26,7 +26,7 @@ There is no server. The app talks to Apple directly:
   App Store icons of your apps (`itunes.apple.com/lookup`).
 - No analytics, no tracking, no account.
 
-This repository is the whole app, so you can check every line of that.
+This repository is the whole app's source, so you can check every line of that.
 
 ## Setting it up
 
@@ -74,7 +74,9 @@ swift run asc-peek discovery  # store analytics per app
 
 ## License
 
-The code is released under the [MIT License](LICENSE). The name "App Sales Overview" and the app icon are not:
-please use your own name and icon if you publish an app built from this code.
+The source is available under the [PolyForm Noncommercial License 1.0.0](LICENSE): you may read it, check it,
+build the app for yourself and change it for any noncommercial purpose. Selling it or using it commercially is not
+permitted. The name "App Sales Overview" and the app icon are not licensed: please use your own if you share a
+version you built.
 
 Made by [0xdeploy.studio](https://0xdeploy.studio).
