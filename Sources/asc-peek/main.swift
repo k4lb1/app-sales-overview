@@ -3,7 +3,8 @@ import Foundation
 
 // Prints what App Store Connect returns for a key in ~/.appstoreconnect (config.json + AuthKey_<keyID>.p8).
 // Usage: swift run asc-peek                     apps, versions, reviews
-//        swift run asc-peek raw <path>          e.g. raw /v1/apps
+//        swift run asc-peek raw <path> k=v …    e.g. raw /v1/apps limit=5
+//        swift run asc-peek post <path> <file>  posts the JSON in <file>, e.g. to create a localization
 //        swift run asc-peek sales [yyyy-MM-dd]  the daily sales summary (default: yesterday)
 //        swift run asc-peek request-analytics   asks Apple to produce ongoing analytics reports for every app
 //        swift run asc-peek discovery           the store analytics instances per app, and the first lines
@@ -20,10 +21,26 @@ func json(_ data: Data) -> [String: Any] {
 }
 
 let arguments = CommandLine.arguments.dropFirst()
+
+func query(_ pairs: ArraySlice<String>) -> [String: String] {
+    var query: [String: String] = [:]
+    for pair in pairs {
+        let parts = pair.split(separator: "=", maxSplits: 1).map(String.init)
+        if parts.count == 2 { query[parts[0]] = parts[1] }
+    }
+    return query
+}
+
 if arguments.first == "raw", let path = arguments.dropFirst().first {
-    let data = try await client.get(path)
+    let data = try await client.get(path, query: query(arguments.dropFirst(2)))
     let pretty = try JSONSerialization.data(withJSONObject: JSONSerialization.jsonObject(with: data), options: [.prettyPrinted, .sortedKeys])
     print(String(decoding: pretty, as: UTF8.self))
+    exit(0)
+}
+
+if arguments.first == "post", let path = arguments.dropFirst().first, let file = arguments.dropFirst(2).first {
+    let body = try JSONSerialization.jsonObject(with: Data(contentsOf: URL(filePath: file))) as! [String: Any]
+    print(String(decoding: try await client.post(path, json: body), as: UTF8.self))
     exit(0)
 }
 
@@ -43,11 +60,7 @@ if arguments.first == "sales" {
 }
 
 if arguments.first == "report", let path = arguments.dropFirst().first {
-    var query: [String: String] = [:]
-    for pair in arguments.dropFirst(2) {
-        let parts = pair.split(separator: "=", maxSplits: 1).map(String.init)
-        if parts.count == 2 { query[parts[0]] = parts[1] }
-    }
+    var query = query(arguments.dropFirst(2))
     query["filter[vendorNumber]"] = config["vendorNumber"]!
     print(String(decoding: try Gzip.unzip(try await client.get(path, query: query)), as: UTF8.self))
     exit(0)
