@@ -12,6 +12,8 @@ App Sales Overview puts every app of your account on one screen again.
   countries they come from. Proceeds are converted to one currency with the European Central Bank's daily rates.
 - **Store:** the discovery funnel from Apple's analytics (impressions, product page views, downloads, conversion,
   and where people found the app), every version waiting at Apple, and the newest reviews of all apps.
+- **Explore:** a chart you put together yourself: downloads, proceeds, updates, re-downloads, refunds, impressions
+  or page views over 7 to 180 days, split by app, country, device or store source, exported as CSV.
 - **Widgets** for the Home Screen and the Lock Screen. They fetch on their own, so yesterday's numbers are there
   in the morning without opening the app.
 

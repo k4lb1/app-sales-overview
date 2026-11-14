@@ -43,6 +43,9 @@ struct RootView: View {
             Tab("Store", systemImage: "bag") {
                 NavigationStack { StoreView() }
             }
+            Tab("Explore", systemImage: "chart.xyaxis.line") {
+                NavigationStack { ExploreView() }
+            }
             Tab("Settings", systemImage: "slider.horizontal.3") {
                 NavigationStack { SettingsView() }
             }

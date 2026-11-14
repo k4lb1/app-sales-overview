@@ -146,7 +146,7 @@ struct Figures {
             .map { ($0.key, $0.value) }.sorted { $0.units > $1.units }
     }
 
-    private func belongs(_ row: SalesRow, to app: StoreApp?) -> Bool {
+    func belongs(_ row: SalesRow, to app: StoreApp?) -> Bool {
         guard let app else { return true }
         return row.appSKU == app.sku || row.appleID == app.id
     }
@@ -202,7 +202,7 @@ struct Figures {
         String(format: "%.2f", value)
     }
 
-    private static func csv(_ lines: [[String]]) -> String {
+    static func csv(_ lines: [[String]]) -> String {
         lines.map { fields in
             fields.map { $0.contains(where: { ",\"\n".contains($0) }) ? "\"" + $0.replacingOccurrences(of: "\"", with: "\"\"") + "\"" : $0 }
                 .joined(separator: ",")

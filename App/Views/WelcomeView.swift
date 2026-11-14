@@ -18,6 +18,8 @@ struct WelcomeView: View {
                          "Downloads and proceeds of yesterday, the last 7 or 30 days, over all apps and per app. Export them as CSV.")
                     step("bag", "Store",
                          "How often your apps are seen and opened in the App Store, what's waiting for review, and new reviews.")
+                    step("chart.xyaxis.line", "Explore",
+                         "Build your own chart: any figure over the days, split by app, country, device or store source.")
                     step("rectangle.grid.2x2", "Widgets",
                          "Yesterday's downloads on your Home Screen and Lock Screen, updated on their own.")
                     step("key", "Your own key, nothing else",
