@@ -17,6 +17,16 @@ struct ExportMenu: View {
                       preview: SharePreview("Countries (\(label))")) {
                 Label("Countries", systemImage: "globe")
             }
+            ShareLink(item: CSVFile(name: "App Sales \(label) all sales", text: dashboard.figures.salesCSV(days: days)),
+                      preview: SharePreview("All sales lines (\(label))")) {
+                Label("All sales lines", systemImage: "list.bullet.rectangle")
+            }
+            if !dashboard.figures.discovery.isEmpty {
+                ShareLink(item: CSVFile(name: "App Sales \(label) store", text: dashboard.figures.storeCSV(days: days)),
+                          preview: SharePreview("Store analytics (\(label))")) {
+                    Label("Store analytics", systemImage: "eye")
+                }
+            }
         } label: {
             Image(systemName: "square.and.arrow.up")
         }

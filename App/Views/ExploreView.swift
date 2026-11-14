@@ -43,7 +43,7 @@ struct ExploreView: View {
         .navigationTitle("Explore")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                ShareLink(item: CSVFile(name: fileName, text: dashboard.figures.exploreCSV(metric, by: split, days: period, app: app)),
+                ShareLink(item: CSVFile(name: fileName, text: dashboard.figures.exploreCSV(by: split, days: period, app: app)),
                           preview: SharePreview(fileName)) {
                     Image(systemName: "square.and.arrow.up")
                 }
@@ -139,7 +139,7 @@ struct ExploreView: View {
     }
 
     private var fileName: String {
-        "App Sales \(metric.title) by \(split.title.lowercased()) \(period) days"
+        split == .none ? "App Sales \(period) days" : "App Sales by \(split.title.lowercased()) \(period) days"
     }
 
     /// Silver to grey, light at the bottom of each bar, so the largest group stands out.

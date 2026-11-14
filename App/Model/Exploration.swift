@@ -131,16 +131,27 @@ extension Figures {
         }
     }
 
-    static func countryName(_ code: String) -> String {
-        code.count == 2 ? Locale.current.localizedString(forRegionCode: code) ?? code : code
-    }
-
-    func exploreCSV(_ metric: Metric, by split: Split, days count: Int, app: StoreApp?) -> String {
-        let header = metric == .proceeds ? "\(metric.title) (\(DisplayCurrency.current))" : metric.title
-        var lines = [split == .none ? ["Date", header] : ["Date", split.title, header]]
-        for point in explore(metric, by: split, days: count, app: app).points {
-            let value = metric == .proceeds ? String(format: "%.2f", point.value) : String(Int(point.value))
-            lines.append(split == .none ? [ReportDay.string(point.day), value] : [ReportDay.string(point.day), point.group, value])
+    /// Every metric that can be split this way, one column each, so the file holds more than the chart.
+    /// The store analytics lag behind the sales, so a day either source hasn't covered yet stays empty rather than 0.
+    func exploreCSV(by split: Split, days count: Int, app: StoreApp?) -> String {
+        let metrics = Metric.allCases.filter { $0.splits.contains(split) }
+        var values: [String: [Metric: Double]] = [:]
+        for metric in metrics {
+            for point in explore(metric, by: split, days: count, app: app).points {
+                values[ReportDay.string(point.day) + "\t" + (split == .none ? "" : point.group), default: [:]][metric] = point.value
+            }
+        }
+        let salesDays = Set(reportedDays(count)), storeDays = discoveryDays(count)
+        let header = metrics.map { $0 == .proceeds ? "\($0.title) (\(DisplayCurrency.current))" : $0.title }
+        var lines = [(split == .none ? ["Date"] : ["Date", split.title]) + header]
+        for key in values.keys.sorted() {
+            let parts = key.components(separatedBy: "\t")
+            let columns = metrics.map { metric in
+                guard (metric.isStore ? storeDays : salesDays).contains(parts[0]) else { return "" }
+                let value = values[key]?[metric] ?? 0
+                return metric == .proceeds ? Self.amount(value) : String(Int(value))
+            }
+            lines.append((split == .none ? [parts[0]] : parts) + columns)
         }
         return Self.csv(lines)
     }
