@@ -4,6 +4,7 @@ struct SettingsView: View {
     @Environment(Dashboard.self) private var dashboard
     @State private var currency = DisplayCurrency.current
     @State private var confirmsRemoval = false
+    @AppStorage("welcomeSeen") private var welcomeSeen = true
 
     private static let version: String = {
         let info = Bundle.main.infoDictionary
@@ -46,6 +47,8 @@ struct SettingsView: View {
             }
 
             Section("About") {
+                // Shown by the app's top-level sheet: one presented from a form row closes again on the first tap.
+                Button("How it works") { welcomeSeen = false }
                 LabeledContent("Version", value: Self.version)
                 Link(destination: URL(string: "https://github.com/k4lb1/app-sales-overview")!) {
                     LabeledContent("Open Source") {

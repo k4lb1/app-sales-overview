@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct AppSalesApp: App {
     @State private var dashboard = Dashboard()
+    @AppStorage("welcomeSeen") private var welcomeSeen = false
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
@@ -17,6 +18,7 @@ struct AppSalesApp: App {
             .environment(dashboard)
             .preferredColorScheme(.dark)
             .tint(Color.sales)
+            .sheet(isPresented: Binding(get: { !welcomeSeen }, set: { if !$0 { welcomeSeen = true } })) { WelcomeView() }
             .task { await dashboard.refresh() }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active { Task { await dashboard.refresh() } }
