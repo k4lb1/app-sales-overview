@@ -14,19 +14,22 @@ public struct PlayFigures: Sendable {
     public var reviews: [PlayReview] = []
     /// Package → crash rate per day.
     public var crashes: [String: [PlayCrashDay]] = [:]
+    /// Google's monthly earnings: every booking in the payout currency, for the books.
+    public var earnings: [PlayEarningRow] = []
 
     /// What's left of a price after Google's service fee (15 % on the first million a year). An estimate: the exact
     /// payout is in Google's monthly earnings report.
     public static let afterFee = 0.85
 
     public init(apps: [PlayApp] = [], installs: [PlayInstallRow] = [], countries: [PlayInstallRow] = [], sales: [PlaySaleRow] = [],
-                reviews: [PlayReview] = [], crashes: [String: [PlayCrashDay]] = [:]) {
+                reviews: [PlayReview] = [], crashes: [String: [PlayCrashDay]] = [:], earnings: [PlayEarningRow] = []) {
         self.apps = apps
         self.installs = installs
         self.countries = countries
         self.sales = sales
         self.reviews = reviews
         self.crashes = crashes
+        self.earnings = earnings
     }
 
     public var latestDay: String? { installs.map(\.day).max() }
@@ -154,6 +157,12 @@ public enum PlayData {
         }
         for month in months {
             if let data = await file("sales/salesreport_\(month).zip") { figures.sales += PlayReports.sales(data) }
+            // The earnings report has the account's number and a part number in its name, so it's looked up.
+            for name in (try? await client.files(bucket: account.bucket, prefix: "earnings/earnings_\(month)")) ?? [] where name.hasSuffix(".zip") {
+                if let data = await file(name) {
+                    figures.earnings += PlayReports.earnings(data, month: "\(month.prefix(4))-\(month.suffix(2))")
+                }
+            }
         }
         figures.reviews.sort { $0.date > $1.date }
         return figures

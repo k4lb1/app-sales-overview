@@ -21,6 +21,27 @@ public struct PlaySaleRow: Codable, Hashable, Sendable {
     public var isRefund: Bool
 }
 
+/// One booking from Google's monthly earnings report, in the payout currency at Google's own rate: what reaches the
+/// bank, so the figure the books want.
+public struct PlayEarningRow: Codable, Hashable, Sendable {
+    public enum Kind: String, Codable, Sendable {
+        case charge, fee, tax, refund
+    }
+
+    /// "yyyy-MM", the month of the report.
+    public var month: String
+    /// As Google writes it, e.g. "Nov 3, 2026".
+    public var date: String
+    public var kind: Kind
+    /// Google's own word for it, e.g. "Charge", "Google fee", "Tax", "Charge refund".
+    public var type: String
+    public var package: String
+    public var country: String
+    /// In the payout currency; fees, taxes and refunds are negative, as in the report.
+    public var amount: Double
+    public var currency: String
+}
+
 /// The Play Console's report files. Google says not to count on the order of the columns, so they're found by name.
 public enum PlayReports {
     /// `stats/installs/installs_<package>_<yyyyMM>_overview.csv` or `…_country.csv`, UTF-16 with a byte order mark.
@@ -54,6 +75,26 @@ public enum PlayReports {
             let amount = Double(row[price].replacingOccurrences(of: ",", with: "")) ?? 0
             return PlaySaleRow(day: row[date], package: row[product], country: country.map { $0 < row.count ? row[$0] : "" } ?? "",
                                currency: row[currency], amount: refund ? -abs(amount) : amount, isRefund: refund)
+        }
+    }
+
+    /// `earnings/earnings_<yyyyMM>_<account>-<n>.zip`: every booking of the month in the payout currency.
+    public static func earnings(_ zip: Data, month: String) -> [PlayEarningRow] {
+        guard let csv = (try? Zip.files(zip))?.first(where: { $0.name.hasSuffix(".csv") })?.data else { return [] }
+        let table = rows(text(csv))
+        guard let header = table.first else { return [] }
+        let column = Columns(header)
+        guard let type = column["Transaction Type"], let amount = column["Amount (Merchant Currency)", "Merchant Currency Amount"],
+              let currency = column["Merchant Currency"] else { return [] }
+        let date = column["Transaction Date"], product = column["Product id", "Product ID"], country = column["Buyer Country"]
+        func field(_ row: [String], _ index: Int?) -> String { index.map { $0 < row.count ? row[$0] : "" } ?? "" }
+        return table.dropFirst().compactMap { row in
+            guard row.count > max(type, amount, currency), let value = Double(row[amount].replacingOccurrences(of: ",", with: "")) else { return nil }
+            let word = row[type]
+            let lower = word.lowercased()
+            let kind: PlayEarningRow.Kind = lower.contains("fee") ? .fee : lower.contains("tax") ? .tax : lower.contains("refund") ? .refund : .charge
+            return PlayEarningRow(month: month, date: field(row, date), kind: kind, type: word, package: field(row, product),
+                                  country: field(row, country), amount: value, currency: row[currency])
         }
     }
 

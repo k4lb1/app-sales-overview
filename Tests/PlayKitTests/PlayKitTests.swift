@@ -44,6 +44,21 @@ struct PlayKitTests {
         }
     }
 
+    @Test func earningsSortChargesFeesTaxesAndRefunds() throws {
+        let csv = """
+        Description,Transaction Date,Transaction Time,Tax Type,Transaction Type,Refund Type,Product Title,Product id,Buyer Country,Buyer Currency,Amount (Buyer Currency),Currency Conversion Rate,Merchant Currency,Amount (Merchant Currency)
+        GPA.1,"Nov 3, 2026",10:00:00 PST,,Charge,,Example,com.example.app,US,USD,3.99,0.93,EUR,3.71
+        GPA.1,"Nov 3, 2026",10:00:00 PST,,Google fee,,Example,com.example.app,US,USD,-0.60,0.93,EUR,-0.56
+        GPA.2,"Nov 4, 2026",11:00:00 PST,VAT,Tax,,Example,com.example.app,DE,EUR,-0.48,1,EUR,-0.48
+        GPA.3,"Nov 5, 2026",12:00:00 PST,,Charge refund,Full,Example,com.example.app,DE,EUR,-2.99,1,EUR,-2.99
+
+        """
+        let rows = PlayReports.earnings(try zip("earnings_202611_0123-0.csv", Data(csv.utf8), deflate: true), month: "2026-11")
+        #expect(rows.map(\.kind) == [.charge, .fee, .tax, .refund])
+        #expect(rows[0].amount == 3.71 && rows[0].currency == "EUR" && rows[0].date == "Nov 3, 2026")
+        #expect(rows.reduce(0) { $0 + $1.amount } == 3.71 - 0.56 - 0.48 - 2.99)
+    }
+
     @Test func theTokenRequestIsSignedWithTheKey() async throws {
         let attributes: [String: Any] = [kSecAttrKeyType as String: kSecAttrKeyTypeRSA, kSecAttrKeySizeInBits as String: 2048]
         let key = try #require(SecKeyCreateRandomKey(attributes as CFDictionary, nil))

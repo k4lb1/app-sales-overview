@@ -38,6 +38,16 @@ public enum PlayDemo {
             figures.reviews.append(PlayReview(id: "demo-\(index)", package: app.id, rating: text.0, text: text.1, author: "Demo",
                                               date: now.addingTimeInterval(-Double(index) * 86_400 * 1.5)))
         }
+        // The earnings: a month's charges with Google's 15 % fee, in euros, for the months that are over.
+        for sale in figures.sales {
+            let month = String(sale.day.prefix(7))
+            guard month < String(ReportDay.recent(1, from: now).first?.prefix(7) ?? "") else { continue }
+            let kind: PlayEarningRow.Kind = sale.isRefund ? .refund : .charge
+            figures.earnings.append(PlayEarningRow(month: month, date: sale.day, kind: kind, type: sale.isRefund ? "Charge refund" : "Charge",
+                                                   package: sale.package, country: sale.country, amount: sale.amount, currency: "EUR"))
+            figures.earnings.append(PlayEarningRow(month: month, date: sale.day, kind: .fee, type: sale.isRefund ? "Google fee refund" : "Google fee",
+                                                   package: sale.package, country: sale.country, amount: -sale.amount * 0.15, currency: "EUR"))
+        }
         for app in apps {
             figures.crashes[app.id] = ReportDay.recent(30, from: now.addingTimeInterval(-2 * 86_400)).map { day in
                 let rate = app.id == "com.example.kiln" ? 0.012 : 0.003
