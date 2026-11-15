@@ -20,6 +20,20 @@ public struct PlayReview: Codable, Hashable, Identifiable, Sendable {
     public var text: String
     public var author: String
     public var date: Date
+    /// The developer's public answer and when it was written, if there is one.
+    public var reply: String?
+    public var replyDate: Date?
+
+    public init(id: String, package: String, rating: Int, text: String, author: String, date: Date, reply: String? = nil, replyDate: Date? = nil) {
+        self.id = id
+        self.package = package
+        self.rating = rating
+        self.text = text
+        self.author = author
+        self.date = date
+        self.reply = reply
+        self.replyDate = replyDate
+    }
 }
 
 /// The share of daily users who saw a crash, from Android Vitals.
@@ -96,7 +110,12 @@ public struct PlayClient: Sendable {
                         let starRating: Int?
                         let lastModified: Stamp?
                     }
+                    struct Developer: Decodable {
+                        let text: String?
+                        let lastModified: User.Stamp?
+                    }
                     let userComment: User?
+                    let developerComment: Developer?
                 }
                 let reviewId: String
                 let authorName: String?
@@ -108,10 +127,21 @@ public struct PlayClient: Sendable {
         let page = try JSONDecoder().decode(Page.self, from: try await send(url))
         return (page.reviews ?? []).compactMap { review in
             guard let comment = review.comments?.first(where: { $0.userComment != nil })?.userComment else { return nil }
+            let developer = review.comments?.first(where: { $0.developerComment != nil })?.developerComment
             return PlayReview(id: review.reviewId, package: package, rating: comment.starRating ?? 0,
                               text: (comment.text ?? "").trimmingCharacters(in: .whitespacesAndNewlines), author: review.authorName ?? "",
-                              date: Date(timeIntervalSince1970: Double(comment.lastModified?.seconds ?? "0") ?? 0))
+                              date: Date(timeIntervalSince1970: Double(comment.lastModified?.seconds ?? "0") ?? 0),
+                              reply: developer?.text, replyDate: developer?.lastModified.map { Date(timeIntervalSince1970: Double($0.seconds) ?? 0) })
         }
+    }
+
+    /// Google's limit for an answer.
+    public static let replyLimit = 350
+
+    /// Answers a review publicly, or replaces the answer that's there. Google has no way to remove one.
+    public func reply(package: String, reviewID: String, text: String) async throws {
+        let url = URL(string: "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/\(package)/reviews/\(reviewID):reply")!
+        _ = try await send(url, json: ["replyText": text])
     }
 
     /// The crash rate per day over the last `days`, as far as Google has computed it (usually up to two days ago).

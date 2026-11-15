@@ -128,6 +128,12 @@ public final class Dashboard {
         }
     }
 
+    /// After answering a review (or removing the answer), so the list is right without loading everything again.
+    public func setResponse(_ response: ReviewResponse?, forReview id: String) {
+        guard let index = reviews.firstIndex(where: { $0.id == id }) else { return }
+        reviews[index].response = response
+    }
+
     public func currencyChanged() {
         // The figures read the currency when they're shown; touching them redraws what shows an amount.
         figures.rates = figures.rates

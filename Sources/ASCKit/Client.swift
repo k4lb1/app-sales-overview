@@ -64,12 +64,19 @@ public struct Client: Sendable {
         try await send("PATCH", path, json: body)
     }
 
-    private func send(_ method: String, _ path: String, json body: [String: Any]) async throws -> Data {
+    /// Removes a resource, e.g. an answer to a review.
+    public func delete(_ path: String) async throws -> Data {
+        try await send("DELETE", path, json: nil)
+    }
+
+    private func send(_ method: String, _ path: String, json body: [String: Any]?) async throws -> Data {
         var request = URLRequest(url: Self.base.appending(path: path))
         request.httpMethod = method
         request.setValue("Bearer \(try token())", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        if let body {
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        }
         let (data, response) = try await URLSession.shared.data(for: request)
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
         guard (200..<300).contains(status) else { throw ASCError.http(status, String(decoding: data, as: UTF8.self)) }

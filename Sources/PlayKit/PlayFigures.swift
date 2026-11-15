@@ -71,6 +71,13 @@ public struct PlayFigures: Sendable {
             .sorted { $0.1 > $1.1 }
     }
 
+    /// After answering a review, so the list is right without loading everything again.
+    public mutating func setReply(_ text: String, forReview id: String) {
+        guard let index = reviews.firstIndex(where: { $0.id == id }) else { return }
+        reviews[index].reply = text
+        reviews[index].replyDate = .now
+    }
+
     /// The newest day's crash rate.
     public func crashRate(app: PlayApp) -> PlayCrashDay? {
         crashes[app.id]?.max { $0.day < $1.day }
