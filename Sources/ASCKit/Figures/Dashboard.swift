@@ -7,14 +7,14 @@ public final class Dashboard {
     /// The longest period is 90 days, compared with the 90 before.
     public static let maxDays = 180
 
-    private(set) var account: Account?
-    private(set) var figures = Figures()
-    private(set) var isLoading = false
-    private(set) var error: String?
-    private(set) var icons: [String: URL] = [:]
-    private(set) var reviews: [Review] = []
+    public private(set) var account: Account?
+    public private(set) var figures = Figures()
+    public private(set) var isLoading = false
+    public private(set) var error: String?
+    public private(set) var icons: [String: URL] = [:]
+    public private(set) var reviews: [Review] = []
     /// Why there are no analytics, when Apple refused them (a key without the Admin role).
-    private(set) var analyticsError: String?
+    public private(set) var analyticsError: String?
     /// Runs after each refresh with fresh numbers: the iPhone app notifies from here, the Mac app checks its sensors.
     public var afterRefresh: (@MainActor (Figures, [Review]) async -> Void)?
 
@@ -26,7 +26,7 @@ public final class Dashboard {
     }
 
     public var isSetUp: Bool { account != nil || isDemo }
-    private(set) var isDemo = DemoData.isOn
+    public private(set) var isDemo = DemoData.isOn
 
     public func startDemo() {
         DemoData.isOn = true

@@ -9,6 +9,13 @@ public struct Account: Codable, Equatable, Sendable {
     public var privateKeyPEM: String
     public var vendorNumber: String
 
+    public init(issuer: String, keyID: String, privateKeyPEM: String, vendorNumber: String) {
+        self.issuer = issuer
+        self.keyID = keyID
+        self.privateKeyPEM = privateKeyPEM
+        self.vendorNumber = vendorNumber
+    }
+
     public var key: APIKey { APIKey(issuer: issuer, keyID: keyID, privateKeyPEM: privateKeyPEM) }
 }
 
