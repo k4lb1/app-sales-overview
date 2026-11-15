@@ -14,9 +14,16 @@ public struct Figures: Sendable {
     /// Active subscriptions as of the newest day Apple reported.
     public var subscriptions: [SubscriptionRow] = []
 
-    public init(apps: [StoreApp] = [], days: [String: [SalesRow]] = [:]) {
+    public init(apps: [StoreApp] = [], days: [String: [SalesRow]] = [:], rates: Rates = .cached(),
+                discovery: [DiscoveryRow] = [], months: [String: [SalesRow]] = [:], payouts: [String: [FinanceRow]] = [:],
+                subscriptions: [SubscriptionRow] = []) {
         self.apps = apps
         self.days = days
+        self.rates = rates
+        self.discovery = discovery
+        self.months = months
+        self.payouts = payouts
+        self.subscriptions = subscriptions
     }
 
     public var latestDay: String? { days.keys.max() }
