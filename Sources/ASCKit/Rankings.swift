@@ -63,9 +63,10 @@ public struct StoreListing: Codable, Hashable, Sendable {
     public var version: String
     public var released: Date?
     public var icon: URL?
+    public var developer: String
 
     public init(id: String, name: String, mac: Bool, genre: Int, genreName: String, price: Double, currency: String,
-                rating: Double, ratings: Int, version: String, released: Date?, icon: URL?) {
+                rating: Double, ratings: Int, version: String, released: Date?, icon: URL?, developer: String = "") {
         self.id = id
         self.name = name
         self.mac = mac
@@ -78,11 +79,26 @@ public struct StoreListing: Codable, Hashable, Sendable {
         self.version = version
         self.released = released
         self.icon = icon
+        self.developer = developer
     }
 
     /// The listings in one country's store; apps not sold there are missing.
     public static func load(ids: [String], country: String) async throws -> [StoreListing] {
         guard !ids.isEmpty else { return [] }
+        return try await request("lookup", [URLQueryItem(name: "id", value: ids.joined(separator: ",")),
+                                            URLQueryItem(name: "country", value: country.lowercased())])
+    }
+
+    /// Apps whose name or developer matches, as the App Store's search finds them; or the one app an App Store link
+    /// ("…/id123456789") points to.
+    public static func search(_ text: String, country: String, mac: Bool = false) async throws -> [StoreListing] {
+        if let match = text.firstMatch(of: /id(\d{6,})/) { return try await load(ids: [String(match.1)], country: country) }
+        return try await request("search", [URLQueryItem(name: "term", value: text), URLQueryItem(name: "country", value: country.lowercased()),
+                                            URLQueryItem(name: "entity", value: mac ? "macSoftware" : "software"),
+                                            URLQueryItem(name: "limit", value: "15")])
+    }
+
+    private static func request(_ path: String, _ query: [URLQueryItem]) async throws -> [StoreListing] {
         struct Answer: Decodable {
             struct App: Decodable {
                 let trackId: Int
@@ -97,19 +113,19 @@ public struct StoreListing: Codable, Hashable, Sendable {
                 let version: String?
                 let currentVersionReleaseDate: String?
                 let artworkUrl100: String?
+                let artistName: String?
             }
             let results: [App]
         }
-        var components = URLComponents(string: "https://itunes.apple.com/lookup")!
-        components.queryItems = [URLQueryItem(name: "id", value: ids.joined(separator: ",")),
-                                 URLQueryItem(name: "country", value: country.lowercased())]
+        var components = URLComponents(string: "https://itunes.apple.com/\(path)")!
+        components.queryItems = query
         let (data, _) = try await URLSession.shared.data(from: components.url!)
         return try JSONDecoder().decode(Answer.self, from: data).results.map { app in
             StoreListing(id: String(app.trackId), name: app.trackName, mac: app.kind == "mac-software", genre: app.primaryGenreId ?? 0,
                          genreName: app.primaryGenreName ?? "", price: app.price ?? 0, currency: app.currency ?? "",
                          rating: app.averageUserRating ?? 0, ratings: app.userRatingCount ?? 0, version: app.version ?? "",
                          released: app.currentVersionReleaseDate.flatMap { ISO8601DateFormatter().date(from: $0) },
-                         icon: app.artworkUrl100.flatMap(URL.init(string:)))
+                         icon: app.artworkUrl100.flatMap(URL.init(string:)), developer: app.artistName ?? "")
         }
     }
 }
