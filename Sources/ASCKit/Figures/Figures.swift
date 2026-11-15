@@ -14,6 +14,11 @@ public struct Figures: Sendable {
     /// Active subscriptions as of the newest day Apple reported.
     public var subscriptions: [SubscriptionRow] = []
 
+    public init(apps: [StoreApp] = [], days: [String: [SalesRow]] = [:]) {
+        self.apps = apps
+        self.days = days
+    }
+
     public var latestDay: String? { days.keys.max() }
 
     public var pending: [StoreApp] { apps.filter { $0.pending != nil } }
