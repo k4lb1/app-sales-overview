@@ -1,17 +1,17 @@
 import Foundation
 
 /// The App Group that the app and its widgets share: the reports on disk and the apps.
-enum AppGroup {
-    static let id = Bundle.main.object(forInfoDictionaryKey: "AppGroup") as? String ?? ""
+public enum AppGroup {
+    public static let id = Bundle.main.object(forInfoDictionaryKey: "AppGroup") as? String ?? ""
 
-    static var folder: URL {
+    public static var folder: URL {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: id) ?? .applicationSupportDirectory
     }
 }
 
 /// Daily reports on disk, one file per day, in the App Group so the widgets read them too.
 /// A day Apple has reported doesn't change any more, so it's fetched once; after that only new days are asked for.
-enum ReportCache {
+public enum ReportCache {
     private static var folder: URL {
         let url = AppGroup.folder.appending(path: "reports")
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
@@ -19,31 +19,31 @@ enum ReportCache {
     }
 
     /// A day saved before the app read the version column is fetched again, for the release marks in the charts.
-    static func load(_ day: String) -> [SalesRow]? {
+    public static func load(_ day: String) -> [SalesRow]? {
         guard let data = try? Data(contentsOf: folder.appending(path: "\(day).json")),
               let rows = try? JSONDecoder().decode([SalesRow].self, from: data),
               rows.isEmpty || rows.contains(where: { $0.version != nil }) else { return nil }
         return rows
     }
 
-    static func save(_ rows: [SalesRow], for day: String) {
+    public static func save(_ rows: [SalesRow], for day: String) {
         guard let data = try? JSONEncoder().encode(rows) else { return }
         try? data.write(to: folder.appending(path: "\(day).json"), options: .atomic)
     }
 
     /// The apps as last fetched, for the widgets when Apple can't be reached.
-    static func loadApps() -> [StoreApp] {
+    public static func loadApps() -> [StoreApp] {
         guard let data = try? Data(contentsOf: folder.appending(path: "apps.json")) else { return [] }
         return (try? JSONDecoder().decode([StoreApp].self, from: data)) ?? []
     }
 
-    static func saveApps(_ apps: [StoreApp]) {
+    public static func saveApps(_ apps: [StoreApp]) {
         guard let data = try? JSONEncoder().encode(apps) else { return }
         try? data.write(to: folder.appending(path: "apps.json"), options: .atomic)
     }
 
     /// When the key changes, the old account's reports go.
-    static func clear() {
+    public static func clear() {
         for kind in ["reports", "analytics", "months", "payouts"] {
             try? FileManager.default.removeItem(at: AppGroup.folder.appending(path: kind))
         }
@@ -51,7 +51,7 @@ enum ReportCache {
 
     /// The given days from disk, the missing ones from Apple, six at a time. Days Apple hasn't
     /// reported yet are left out.
-    static func days(_ wanted: [String], client: Client, vendor: String) async throws -> [String: [SalesRow]] {
+    public static func days(_ wanted: [String], client: Client, vendor: String) async throws -> [String: [SalesRow]] {
         var result: [String: [SalesRow]] = [:]
         var missing: [String] = []
         for day in wanted {
@@ -81,26 +81,26 @@ enum ReportCache {
 
 /// The analytics report instances on disk, one file per instance. Apple completes a day within three days,
 /// so younger instances are fetched again until they're settled.
-enum AnalyticsCache {
+public enum AnalyticsCache {
     private static var folder: URL {
         let url = AppGroup.folder.appending(path: "analytics")
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }
 
-    static func load(_ instance: String) -> [DiscoveryRow]? {
+    public static func load(_ instance: String) -> [DiscoveryRow]? {
         guard let data = try? Data(contentsOf: folder.appending(path: "\(instance).json")) else { return nil }
         return try? JSONDecoder().decode([DiscoveryRow].self, from: data)
     }
 
-    static func save(_ rows: [DiscoveryRow], for instance: String) {
+    public static func save(_ rows: [DiscoveryRow], for instance: String) {
         guard let data = try? JSONEncoder().encode(rows) else { return }
         try? data.write(to: folder.appending(path: "\(instance).json"), options: .atomic)
     }
 
     /// The discovery lines of the last `days` days for these apps: asks Apple for the report where needed,
     /// and downloads only instances that are new or not settled yet.
-    static func discovery(apps: [StoreApp], days: Int, client: Client) async throws -> [DiscoveryRow] {
+    public static func discovery(apps: [StoreApp], days: Int, client: Client) async throws -> [DiscoveryRow] {
         let settled = ReportDay.string(.now.addingTimeInterval(-4 * 86_400))
         let oldest = ReportDay.string(.now.addingTimeInterval(-Double(days + 4) * 86_400))
         var rows: [DiscoveryRow] = []
@@ -121,26 +121,26 @@ enum AnalyticsCache {
 }
 
 /// Monthly sales and financial reports on disk, one file per month. A month that's reported doesn't change.
-enum MonthCache {
+public enum MonthCache {
     private static func folder(_ kind: String) -> URL {
         let url = AppGroup.folder.appending(path: kind)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }
 
-    static func load<Row: Decodable>(_ kind: String, _ month: String) -> [Row]? {
+    public static func load<Row: Decodable>(_ kind: String, _ month: String) -> [Row]? {
         guard let data = try? Data(contentsOf: folder(kind).appending(path: "\(month).json")) else { return nil }
         return try? JSONDecoder().decode([Row].self, from: data)
     }
 
-    static func save<Row: Encodable>(_ rows: [Row], _ kind: String, _ month: String) {
+    public static func save<Row: Encodable>(_ rows: [Row], _ kind: String, _ month: String) {
         guard let data = try? JSONEncoder().encode(rows) else { return }
         try? data.write(to: folder(kind).appending(path: "\(month).json"), options: .atomic)
     }
 
     /// The months from disk, the rest from Apple. A financial month can come out empty before Apple has published it,
     /// so an empty month is only kept once it's two months past.
-    static func months<Row: Codable & Sendable>(_ kind: String, _ wanted: [String],
+    public static func months<Row: Codable & Sendable>(_ kind: String, _ wanted: [String],
                                                 fetch: @escaping @Sendable (String) async throws -> [Row]) async -> [String: [Row]] {
         let settled = ReportDay.recentMonths(2).last ?? ""
         var result: [String: [Row]] = [:]

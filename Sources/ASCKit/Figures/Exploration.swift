@@ -1,12 +1,12 @@
 import Foundation
 
 /// What the Explore tab can chart: a metric over days, split by one dimension.
-enum Metric: String, CaseIterable, Identifiable {
+public enum Metric: String, CaseIterable, Identifiable {
     case downloads, proceeds, updates, redownloads, refunds, impressions, pageViews
 
-    var id: Self { self }
+    public var id: Self { self }
 
-    var title: String {
+    public var title: String {
         switch self {
         case .downloads: "Downloads"
         case .proceeds: "Proceeds"
@@ -19,19 +19,19 @@ enum Metric: String, CaseIterable, Identifiable {
     }
 
     /// From Apple's store analytics rather than the sales reports.
-    var isStore: Bool { self == .impressions || self == .pageViews }
+    public var isStore: Bool { self == .impressions || self == .pageViews }
 
-    var splits: [Split] {
+    public var splits: [Split] {
         isStore ? [.none, .app, .country, .source] : [.none, .app, .country, .device]
     }
 }
 
-enum Split: String, CaseIterable, Identifiable {
+public enum Split: String, CaseIterable, Identifiable {
     case none, app, country, device, source
 
-    var id: Self { self }
+    public var id: Self { self }
 
-    var title: String {
+    public var title: String {
         switch self {
         case .none: "None"
         case .app: "App"
@@ -42,23 +42,23 @@ enum Split: String, CaseIterable, Identifiable {
     }
 }
 
-struct Exploration {
-    struct Point: Identifiable {
-        let day: Date
-        let group: String
-        let value: Double
+public struct Exploration {
+    public struct Point: Identifiable {
+        public let day: Date
+        public let group: String
+        public let value: Double
 
-        var id: String { "\(day.timeIntervalSince1970)|\(group)" }
+        public var id: String { "\(day.timeIntervalSince1970)|\(group)" }
     }
 
     /// One point per day and group, oldest first.
-    let points: [Point]
+    public let points: [Point]
     /// Each group's total over the period, largest first.
-    let totals: [(group: String, value: Double)]
+    public let totals: [(group: String, value: Double)]
 
     /// The largest groups by name, the rest folded into "Other" so the chart stays readable. Each day stacks them
     /// in the same order, the largest at the bottom.
-    func charted(top: Int = 5) -> [Point] {
+    public func charted(top: Int = 5) -> [Point] {
         let order = Dictionary(uniqueKeysWithValues: chartedGroups(top: top).enumerated().map { ($1, $0) })
         let folded = Dictionary(grouping: points) { "\($0.day.timeIntervalSince1970)|\(order[$0.group] == nil ? Self.other : $0.group)" }
             .map { _, points in Point(day: points[0].day, group: order[points[0].group] == nil ? Self.other : points[0].group,
@@ -67,15 +67,15 @@ struct Exploration {
     }
 
     /// The groups in the chart's order: largest first, "Other" last.
-    func chartedGroups(top: Int = 5) -> [String] {
+    public func chartedGroups(top: Int = 5) -> [String] {
         totals.prefix(top).map(\.group) + (totals.count > top ? [Self.other] : [])
     }
 
-    static let other = "Other"
+    public static let other = "Other"
 }
 
 extension Figures {
-    func explore(_ metric: Metric, by split: Split, days count: Int, app: StoreApp? = nil) -> Exploration {
+    public func explore(_ metric: Metric, by split: Split, days count: Int, app: StoreApp? = nil) -> Exploration {
         var values: [String: [String: Double]] = [:]
         if metric.isStore {
             let days = discoveryDays(count)
@@ -132,7 +132,7 @@ extension Figures {
     }
 
     /// The average day per weekday, Monday first. Days without anything count as 0, so a quiet Sunday shows.
-    func weekdays(_ metric: Metric, days count: Int, app: StoreApp? = nil) -> [(weekday: String, average: Double)] {
+    public func weekdays(_ metric: Metric, days count: Int, app: StoreApp? = nil) -> [(weekday: String, average: Double)] {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = ReportDay.timeZone
         calendar.locale = .current
@@ -151,7 +151,7 @@ extension Figures {
 
     /// Every metric that can be split this way, one column each, so the file holds more than the chart.
     /// The store analytics lag behind the sales, so a day either source hasn't covered yet stays empty rather than 0.
-    func exploreCSV(by split: Split, days count: Int, app: StoreApp?) -> String {
+    public func exploreCSV(by split: Split, days count: Int, app: StoreApp?) -> String {
         let metrics = Metric.allCases.filter { $0.splits.contains(split) }
         // One line per app as well, unless the split already is the app.
         let perApp = split != .app

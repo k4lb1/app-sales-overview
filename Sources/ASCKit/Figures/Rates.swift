@@ -2,21 +2,21 @@ import Foundation
 
 /// Apple pays each country's sales in its own currency. To show one total, the proceeds are converted with the
 /// European Central Bank's daily reference rates: a public file, fetched without anything about the user.
-struct Rates: Codable {
+public struct Rates: Codable, Sendable {
     /// Units of each currency per euro, as the ECB publishes them.
-    var perEuro: [String: Double] = ["EUR": 1]
-    var fetched: Date = .distantPast
+    public var perEuro: [String: Double] = ["EUR": 1]
+    public var fetched: Date = .distantPast
 
-    static let source = URL(string: "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml")!
+    public static let source = URL(string: "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml")!
     private static var file: URL { AppGroup.folder.appending(path: "rates.json") }
 
-    static func cached() -> Rates {
+    public static func cached() -> Rates {
         guard let data = try? Data(contentsOf: file), let rates = try? JSONDecoder().decode(Rates.self, from: data) else { return Rates() }
         return rates
     }
 
     /// Today's rates; the cached ones while they're younger than 12 hours or when the ECB can't be reached.
-    static func current() async -> Rates {
+    public static func current() async -> Rates {
         let cached = cached()
         guard cached.fetched < .now.addingTimeInterval(-12 * 3600),
               let (data, _) = try? await URLSession.shared.data(from: source) else { return cached }
@@ -33,7 +33,7 @@ struct Rates: Codable {
     }
 
     /// The sum in `target`, and what couldn't be converted (currencies the ECB doesn't list), left as it is.
-    func total(_ sums: [String: Double], in target: String) -> (total: Double, rest: [String: Double]) {
+    public func total(_ sums: [String: Double], in target: String) -> (total: Double, rest: [String: Double]) {
         var total = 0.0
         var rest: [String: Double] = [:]
         for (currency, amount) in sums {
@@ -48,16 +48,16 @@ struct Rates: Codable {
 }
 
 /// The currency totals are shown in: the user's choice, by default the device's.
-enum DisplayCurrency {
-    static let key = "displayCurrency"
-    static let choices = ["EUR", "USD", "GBP", "CHF", "JPY", "CAD", "AUD", "SEK", "NOK", "DKK", "PLN", "CZK"]
+public enum DisplayCurrency {
+    public static let key = "displayCurrency"
+    public static let choices = ["EUR", "USD", "GBP", "CHF", "JPY", "CAD", "AUD", "SEK", "NOK", "DKK", "PLN", "CZK"]
 
-    static var current: String {
+    public static var current: String {
         UserDefaults(suiteName: AppGroup.id)?.string(forKey: key)
             ?? (choices.contains(Locale.current.currency?.identifier ?? "") ? Locale.current.currency!.identifier : "EUR")
     }
 
-    static func set(_ code: String) {
+    public static func set(_ code: String) {
         UserDefaults(suiteName: AppGroup.id)?.set(code, forKey: key)
     }
 }

@@ -2,37 +2,37 @@ import Foundation
 
 /// One month for the books: what each app earned in which country, from Apple's monthly sales summary,
 /// and what Apple's financial report says it owes for the month.
-struct Statement {
-    struct Line {
-        let app: String
-        let country: String
-        let downloads: Int
-        let purchases: Int
-        let refunds: Int
+public struct Statement {
+    public struct Line {
+        public let app: String
+        public let country: String
+        public let downloads: Int
+        public let purchases: Int
+        public let refunds: Int
         /// In the currency Apple reports for the country.
-        let proceeds: Double
-        let currency: String
+        public let proceeds: Double
+        public let currency: String
         /// In the display currency, at the ECB's rate.
-        let converted: Double
+        public let converted: Double
     }
 
-    let month: String
-    let currency: String
-    let lines: [Line]
+    public let month: String
+    public let currency: String
+    public let lines: [Line]
     /// Apple's financial report, per currency. Empty until Apple publishes it, some days after the month.
-    let payout: [String: Double]
-    let payoutConverted: Double
+    public let payout: [String: Double]
+    public let payoutConverted: Double
 
-    var title: String { Self.title(month) }
+    public var title: String { Self.title(month) }
 
-    static func title(_ month: String) -> String {
+    public static func title(_ month: String) -> String {
         ReportDay.date(month + "-01")?.formatted(.dateTime.month(.wide).year()) ?? month
     }
 
-    var total: Double { lines.reduce(0) { $0 + $1.converted } }
+    public var total: Double { lines.reduce(0) { $0 + $1.converted } }
 
     /// Per app, largest first.
-    var apps: [(app: String, downloads: Int, purchases: Int, refunds: Int, converted: Double)] {
+    public var apps: [(app: String, downloads: Int, purchases: Int, refunds: Int, converted: Double)] {
         Dictionary(grouping: lines, by: \.app).map { app, lines in
             (app, lines.reduce(0) { $0 + $1.downloads }, lines.reduce(0) { $0 + $1.purchases },
              lines.reduce(0) { $0 + $1.refunds }, lines.reduce(0) { $0 + $1.converted })
@@ -41,14 +41,14 @@ struct Statement {
     }
 
     /// Proceeds per currency as Apple reports them, largest converted amount first.
-    var currencies: [(currency: String, proceeds: Double, converted: Double)] {
+    public var currencies: [(currency: String, proceeds: Double, converted: Double)] {
         Dictionary(grouping: lines.filter { !$0.currency.isEmpty }, by: \.currency).map { currency, lines in
             (currency, lines.reduce(0) { $0 + $1.proceeds }, lines.reduce(0) { $0 + $1.converted })
         }
         .sorted { $0.converted > $1.converted }
     }
 
-    func csv() -> String {
+    public func csv() -> String {
         var rows = [["App", "Country", "Country code", "Downloads", "In-app purchases", "Refunds", "Proceeds", "Currency",
                      "Proceeds (\(currency))"]]
         for line in lines {
@@ -61,11 +61,11 @@ struct Statement {
 
 extension Figures {
     /// The months a statement can be made for: those Apple has a monthly sales summary of, newest first.
-    var statementMonths: [String] {
+    public var statementMonths: [String] {
         months.filter { !$0.value.isEmpty }.keys.sorted(by: >)
     }
 
-    func statement(_ month: String) -> Statement {
+    public func statement(_ month: String) -> Statement {
         let currency = DisplayCurrency.current
         let rows = months[month] ?? []
         var lines: [Statement.Line] = []

@@ -2,25 +2,25 @@ import Foundation
 
 /// Sample apps and figures for trying the app without a key: for App Review, screenshots, and anyone who wants to
 /// see it before creating one. Invented, and the same every time for the same day.
-enum DemoData {
-    static let key = "demo"
-    static let days = 180
+public enum DemoData {
+    public static let key = "demo"
+    public static let days = 180
 
-    static var isOn: Bool {
+    public static var isOn: Bool {
         get { UserDefaults(suiteName: AppGroup.id)?.bool(forKey: key) ?? false }
         set { UserDefaults(suiteName: AppGroup.id)?.set(newValue, forKey: key) }
     }
 
     private struct Sample {
-        let name: String
-        let downloads: Double
-        let price: Double
-        let versions: [StoreApp.Version]
+        public let name: String
+        public let downloads: Double
+        public let price: Double
+        public let versions: [StoreApp.Version]
         /// The live version came out this many days ago; before, the reports show `previous`.
-        var released = 0
-        var previous = ""
+        public var released = 0
+        public var previous = ""
 
-        var live: String { versions.first { $0.state == "READY_FOR_DISTRIBUTION" }?.string ?? "" }
+        public var live: String { versions.first { $0.state == "READY_FOR_DISTRIBUTION" }?.string ?? "" }
     }
 
     private static let samples = [
@@ -44,14 +44,14 @@ enum DemoData {
         ("CH", 0.03, "CHF", 0.88), ("SE", 0.03, "SEK", 10.6), ("BR", 0.03, "USD", 1.0),
     ]
 
-    static var apps: [StoreApp] {
+    public static var apps: [StoreApp] {
         samples.enumerated().map { index, sample in
             StoreApp(id: "demo\(index)", name: sample.name, bundleID: "com.example.app\(index)", sku: "demo\(index)",
                      versions: sample.versions)
         }
     }
 
-    static func figures(now: Date = .now) -> Figures {
+    public static func figures(now: Date = .now) -> Figures {
         var random = Random(seed: ReportDay.string(now).unicodeScalars.reduce(7) { $0 &* 31 &+ UInt64($1.value) })
         var reports: [String: [SalesRow]] = [:]
         var discovery: [DiscoveryRow] = []
@@ -131,7 +131,7 @@ enum DemoData {
                        months: months, payouts: payouts, subscriptions: subscriptions)
     }
 
-    static func reviews(now: Date = .now) -> [Review] {
+    public static func reviews(now: Date = .now) -> [Review] {
         let entries: [(app: Int, rating: Int, title: String, body: String, nickname: String, territory: String, daysAgo: Double)] = [
             (0, 5, "Finally tides that make sense", "Clean, fast, and the widget is exactly what I check before heading out.", "salt_and_sand", "USA", 0.4),
             (1, 5, "My plants and my habits", "Watching the garden grow keeps me going. Lovely little app.", "Jana K.", "DEU", 1.2),
@@ -147,9 +147,9 @@ enum DemoData {
 
     /// The same numbers on every run of the same day.
     private struct Random {
-        var state: UInt64
-        init(seed: UInt64) { state = seed }
-        mutating func next(_ low: Double, _ high: Double) -> Double {
+        public var state: UInt64
+        public init(seed: UInt64) { state = seed }
+        public mutating func next(_ low: Double, _ high: Double) -> Double {
             state = state &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
             return low + (high - low) * Double(state >> 11) / Double(1 << 53)
         }

@@ -3,9 +3,9 @@ import Observation
 import WidgetKit
 
 @MainActor @Observable
-final class Dashboard {
+public final class Dashboard {
     /// The longest period is 90 days, compared with the 90 before.
-    static let maxDays = 180
+    public static let maxDays = 180
 
     private(set) var account: Account?
     private(set) var figures = Figures()
@@ -16,25 +16,25 @@ final class Dashboard {
     /// Why there are no analytics, when Apple refused them (a key without the Admin role).
     private(set) var analyticsError: String?
     /// Runs after each refresh with fresh numbers: the iPhone app notifies from here, the Mac app checks its sensors.
-    var afterRefresh: ((Figures, [Review]) async -> Void)?
+    public var afterRefresh: (@MainActor (Figures, [Review]) async -> Void)?
 
-    init() {
+    public init() {
         account = KeyStore.load()
         let saved = UserDefaults(suiteName: AppGroup.id)?.dictionary(forKey: "icons") as? [String: String] ?? [:]
         icons = saved.compactMapValues(URL.init(string:))
         if account != nil { figures.apps = ReportCache.loadApps() }
     }
 
-    var isSetUp: Bool { account != nil || isDemo }
+    public var isSetUp: Bool { account != nil || isDemo }
     private(set) var isDemo = DemoData.isOn
 
-    func startDemo() {
+    public func startDemo() {
         DemoData.isOn = true
         isDemo = true
         Task { await refresh() }
     }
 
-    func stopDemo() {
+    public func stopDemo() {
         DemoData.isOn = false
         isDemo = false
         figures = Figures()
@@ -42,7 +42,7 @@ final class Dashboard {
         WidgetCenter.shared.reloadAllTimelines()
     }
 
-    func connect(_ account: Account) async throws {
+    public func connect(_ account: Account) async throws {
         // Checks the key before keeping it: a wrong key or ID fails here, with Apple's message.
         _ = try await Client(key: account.key).apps()
         if self.account != account { ReportCache.clear() }
@@ -53,7 +53,7 @@ final class Dashboard {
         await refresh()
     }
 
-    func disconnect() {
+    public func disconnect() {
         KeyStore.delete()
         ReportCache.clear()
         account = nil
@@ -64,7 +64,7 @@ final class Dashboard {
         WidgetCenter.shared.reloadAllTimelines()
     }
 
-    func refresh() async {
+    public func refresh() async {
         if isDemo {
             figures = DemoData.figures()
             figures.rates = await Rates.current()
@@ -126,7 +126,7 @@ final class Dashboard {
         }
     }
 
-    func currencyChanged() {
+    public func currencyChanged() {
         // The figures read the currency when they're shown; touching them redraws what shows an amount.
         figures.rates = figures.rates
         WidgetCenter.shared.reloadAllTimelines()
