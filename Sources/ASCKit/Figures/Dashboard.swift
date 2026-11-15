@@ -15,6 +15,8 @@ final class Dashboard {
     private(set) var reviews: [Review] = []
     /// Why there are no analytics, when Apple refused them (a key without the Admin role).
     private(set) var analyticsError: String?
+    /// Runs after each refresh with fresh numbers: the iPhone app notifies from here, the Mac app checks its sensors.
+    var afterRefresh: ((Figures, [Review]) async -> Void)?
 
     init() {
         account = KeyStore.load()
@@ -86,7 +88,7 @@ final class Dashboard {
             await loadIcons()
             await loadReviews(client: client)
             await loadDiscovery(client: client)
-            await Notifier.notice(figures, reviews: reviews, notify: false)
+            await afterRefresh?(figures, reviews)
         } catch {
             self.error = String(describing: error)
         }

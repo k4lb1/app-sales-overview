@@ -2,11 +2,14 @@ import SwiftUI
 
 @main
 struct AppSalesApp: App {
-    @State private var dashboard = Dashboard()
+    @State private var dashboard: Dashboard
     @AppStorage("welcomeSeen") private var welcomeSeen = false
 
     init() {
         Notifier.register()
+        let dashboard = Dashboard()
+        dashboard.afterRefresh = { figures, reviews in await Notifier.notice(figures, reviews: reviews, notify: false) }
+        _dashboard = State(initialValue: dashboard)
     }
     @Environment(\.scenePhase) private var scenePhase
 
