@@ -123,6 +123,15 @@ public struct StoreListing: Codable, Hashable, Sendable {
                                             URLQueryItem(name: "limit", value: "15")])
     }
 
+    /// Where an app comes in the App Store's search for `term`: 1 for the first result, nil when it isn't among the
+    /// first 200. Apple's public search is close to what the App Store app shows, which also weighs the person searching.
+    public static func searchPlace(of appID: String, for term: String, country: String, platform: StorePlatform) async throws -> Int? {
+        let results = try await request("search", [URLQueryItem(name: "term", value: term), URLQueryItem(name: "country", value: country.lowercased()),
+                                                   URLQueryItem(name: "entity", value: platform.searchEntity),
+                                                   URLQueryItem(name: "limit", value: "200")])
+        return results.firstIndex { $0.id == appID }.map { $0 + 1 }
+    }
+
     private static func request(_ path: String, _ query: [URLQueryItem]) async throws -> [StoreListing] {
         struct Answer: Decodable {
             struct App: Decodable {
@@ -145,7 +154,9 @@ public struct StoreListing: Codable, Hashable, Sendable {
         }
         var components = URLComponents(string: "https://itunes.apple.com/\(path)")!
         components.queryItems = query
-        let (data, _) = try await URLSession.shared.data(from: components.url!)
+        let (data, response) = try await URLSession.shared.data(from: components.url!)
+        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard status == 200 else { throw StoreError.status(status) }
         return try JSONDecoder().decode(Answer.self, from: data).results.map { app in
             StoreListing(id: String(app.trackId), name: app.trackName, mac: app.kind == "mac-software",
                          iPad: app.supportedDevices?.contains { $0.hasPrefix("iPad") } ?? false, genre: app.primaryGenreId ?? 0,
@@ -153,6 +164,18 @@ public struct StoreListing: Codable, Hashable, Sendable {
                          rating: app.averageUserRating ?? 0, ratings: app.userRatingCount ?? 0, version: app.version ?? "",
                          released: app.currentVersionReleaseDate.flatMap { ISO8601DateFormatter().date(from: $0) },
                          icon: app.artworkUrl100.flatMap(URL.init(string:)), developer: app.artistName ?? "")
+        }
+    }
+}
+
+public enum StoreError: Error, LocalizedError {
+    /// 403 or 429: Apple's public search allows about 20 requests a minute.
+    case status(Int)
+
+    public var errorDescription: String? {
+        switch self {
+        case .status(let code) where code == 403 || code == 429: "The App Store asked to slow down (HTTP \(code)); it tries again later."
+        case .status(let code): "The App Store answered HTTP \(code)."
         }
     }
 }
