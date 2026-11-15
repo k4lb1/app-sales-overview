@@ -13,10 +13,12 @@ public struct Figures: Sendable {
     public var payouts: [String: [FinanceRow]] = [:]
     /// Active subscriptions as of the newest day Apple reported.
     public var subscriptions: [SubscriptionRow] = []
+    /// Crashes and sessions per day and app, from Apple's analytics; empty until enough users share analytics.
+    public var usage: [UsageRow] = []
 
     public init(apps: [StoreApp] = [], days: [String: [SalesRow]] = [:], rates: Rates = .cached(),
                 discovery: [DiscoveryRow] = [], months: [String: [SalesRow]] = [:], payouts: [String: [FinanceRow]] = [:],
-                subscriptions: [SubscriptionRow] = []) {
+                subscriptions: [SubscriptionRow] = [], usage: [UsageRow] = []) {
         self.apps = apps
         self.days = days
         self.rates = rates
@@ -24,6 +26,13 @@ public struct Figures: Sendable {
         self.months = months
         self.payouts = payouts
         self.subscriptions = subscriptions
+        self.usage = usage
+    }
+
+    /// Crashes per 1,000 sessions on the newest day that had sessions; nil while Apple has sent none.
+    public func crashesPerThousand(app: StoreApp) -> (day: String, value: Double)? {
+        guard let newest = usage.filter({ $0.appID == app.id && $0.sessions > 0 }).max(by: { $0.date < $1.date }) else { return nil }
+        return (newest.date, Double(newest.crashes) / Double(newest.sessions) * 1000)
     }
 
     public var latestDay: String? { days.keys.max() }

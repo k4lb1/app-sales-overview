@@ -15,6 +15,7 @@ let package = Package(
         .target(name: "ASCKit"),
         .target(name: "PlayKit", dependencies: ["ASCKit"]),
         .testTarget(name: "PlayKitTests", dependencies: ["PlayKit"]),
+        .testTarget(name: "ASCKitTests", dependencies: ["ASCKit"]),
         .executableTarget(name: "asc-peek", dependencies: ["ASCKit"]),
     ]
 )

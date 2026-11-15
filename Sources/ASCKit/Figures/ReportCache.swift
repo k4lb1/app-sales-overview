@@ -98,6 +98,35 @@ public enum AnalyticsCache {
         try? data.write(to: folder.appending(path: "\(instance).json"), options: .atomic)
     }
 
+    /// Crashes and sessions of the last `days` days for these apps, one line per day and app; instances that are
+    /// settled come from the cache. Empty while Apple has too few users who share analytics for an app.
+    public static func usage(apps: [StoreApp], days: Int, client: Client) async throws -> [UsageRow] {
+        let settled = ReportDay.string(.now.addingTimeInterval(-4 * 86_400))
+        let oldest = ReportDay.string(.now.addingTimeInterval(-Double(days + 4) * 86_400))
+        var sums: [String: UsageRow] = [:]
+        for app in apps {
+            let request = try await client.ensureAnalyticsRequest(appID: app.id)
+            for name in [Client.crashReport, Client.sessionReport] {
+                for instance in try await client.reportInstances(requestID: request, name: name) where instance.day >= oldest {
+                    let file = folder.appending(path: "usage-\(instance.id).json")
+                    var rows = (try? Data(contentsOf: file)).flatMap { try? JSONDecoder().decode([UsageRow].self, from: $0) }
+                    if rows == nil || instance.day >= settled {
+                        rows = try await client.usageRows(instanceID: instance.id)
+                        try? JSONEncoder().encode(rows).write(to: file, options: .atomic)
+                    }
+                    for row in rows ?? [] {
+                        let key = row.date + "|" + row.appID
+                        var sum = sums[key] ?? UsageRow(date: row.date, appID: row.appID, crashes: 0, sessions: 0)
+                        sum.crashes += row.crashes
+                        sum.sessions += row.sessions
+                        sums[key] = sum
+                    }
+                }
+            }
+        }
+        return sums.values.sorted { ($0.date, $0.appID) < ($1.date, $1.appID) }
+    }
+
     /// The discovery lines of the last `days` days for these apps: asks Apple for the report where needed,
     /// and downloads only instances that are new or not settled yet.
     public static func discovery(apps: [StoreApp], days: Int, client: Client) async throws -> [DiscoveryRow] {

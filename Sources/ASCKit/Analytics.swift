@@ -19,8 +19,49 @@ public struct DiscoveryRow: Codable, Hashable, Sendable {
     public var uniqueCounts: Int
 }
 
+/// One day of one app from Apple's "App Crashes" and "App Sessions Standard" reports, summed over versions, devices
+/// and the rest. Apple only sends these once at least five users who share analytics are in a report.
+/// Fields as documented: developer.apple.com/documentation/analytics-reports/app-crashes and …/app-sessions
+public struct UsageRow: Codable, Hashable, Sendable {
+    public var date: String
+    public var appID: String
+    public var crashes: Int
+    public var sessions: Int
+
+    public init(date: String, appID: String, crashes: Int, sessions: Int) {
+        self.date = date
+        self.appID = appID
+        self.crashes = crashes
+        self.sessions = sessions
+    }
+
+    /// Reads either report by its column names; one line per day and app, the other columns added up.
+    static func parse(_ text: String) -> [UsageRow] {
+        let lines = text.split(whereSeparator: \.isNewline)
+        guard let first = lines.first else { return [] }
+        let separator: Character = first.contains("\t") ? "\t" : ","
+        let header = first.split(separator: separator, omittingEmptySubsequences: false).map { $0.trimmingCharacters(in: .init(charactersIn: "\" ")) }
+        guard let date = header.firstIndex(of: "Date"), let app = header.firstIndex(of: "App Apple Identifier") else { return [] }
+        let crashes = header.firstIndex(of: "Crashes"), sessions = header.firstIndex(of: "Sessions")
+        var sums: [String: UsageRow] = [:]
+        for line in lines.dropFirst() {
+            let fields = line.split(separator: separator, omittingEmptySubsequences: false).map { $0.trimmingCharacters(in: .init(charactersIn: "\" ")) }
+            guard fields.count > max(date, app) else { continue }
+            func number(_ index: Int?) -> Int { index.flatMap { $0 < fields.count ? Int(fields[$0]) : nil } ?? 0 }
+            let key = fields[date] + "|" + fields[app]
+            var row = sums[key] ?? UsageRow(date: fields[date], appID: fields[app], crashes: 0, sessions: 0)
+            row.crashes += number(crashes)
+            row.sessions += number(sessions)
+            sums[key] = row
+        }
+        return sums.values.sorted { ($0.date, $0.appID) < ($1.date, $1.appID) }
+    }
+}
+
 extension Client {
     public static let discoveryReport = "App Store Discovery and Engagement Standard"
+    public static let crashReport = "App Crashes"
+    public static let sessionReport = "App Sessions Standard"
 
     /// Asks Apple to produce the ongoing analytics reports for an app, unless it already does.
     /// Needs a key with the Admin role. Apple delivers the first data one to two days later.
@@ -48,15 +89,24 @@ extension Client {
 
     /// All lines of one instance. Its segments are files at signed URLs that need no token.
     public func discoveryRows(instanceID: String) async throws -> [DiscoveryRow] {
+        try await segments(instanceID: instanceID).flatMap(DiscoveryRow.parse)
+    }
+
+    /// The crash or session lines of one instance, a line per day and app.
+    public func usageRows(instanceID: String) async throws -> [UsageRow] {
+        UsageRow.parse(try await segments(instanceID: instanceID).joined(separator: "\n"))
+    }
+
+    private func segments(instanceID: String) async throws -> [String] {
         let segments = try JSONDecoder().decode(Resources<SegmentAttributes>.self, from: await get(
             "/v1/analyticsReportInstances/\(instanceID)/segments")).data
-        var rows: [DiscoveryRow] = []
+        var texts: [String] = []
         for segment in segments {
             guard let url = URL(string: segment.attributes.url) else { continue }
             let (data, _) = try await URLSession.shared.data(from: url)
-            rows += DiscoveryRow.parse(String(decoding: try Gzip.unzip(data), as: UTF8.self))
+            texts.append(String(decoding: try Gzip.unzip(data), as: UTF8.self))
         }
-        return rows
+        return texts
     }
 }
 

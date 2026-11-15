@@ -120,6 +120,7 @@ public final class Dashboard {
     private func loadDiscovery(client: Client) async {
         do {
             figures.discovery = try await AnalyticsCache.discovery(apps: figures.apps, days: Self.maxDays, client: client)
+            figures.usage = try await AnalyticsCache.usage(apps: figures.apps, days: 30, client: client)
             analyticsError = nil
         } catch ASCError.http(403, _) {
             analyticsError = String(localized: "Store analytics need a key with the Admin role.")

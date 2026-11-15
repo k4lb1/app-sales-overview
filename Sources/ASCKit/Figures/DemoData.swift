@@ -127,8 +127,18 @@ public enum DemoData {
             SubscriptionRow(appID: "demo1", name: "Moss Plus Yearly", duration: "1 Year", proceeds: 21.24, currency: "USD",
                             country: "US", active: 412, trials: 0, offers: 9),
         ]
+        // Crashes and sessions: a few sessions per download, Quillnote crashes a little more often than the rest.
+        var usage: [UsageRow] = []
+        for (day, rows) in reports {
+            for app in apps {
+                let downloads = rows.filter { $0.appleID == app.id || $0.appSKU == app.sku }.reduce(0) { $0 + max(0, $1.units) }
+                let sessions = downloads * 9 + 40
+                let rate = app.name.hasPrefix("Quillnote") ? 0.007 : 0.002
+                usage.append(UsageRow(date: day, appID: app.id, crashes: Int((Double(sessions) * rate).rounded()), sessions: sessions))
+            }
+        }
         return Figures(apps: apps, days: reports, rates: Rates.cached(), discovery: discovery,
-                       months: months, payouts: payouts, subscriptions: subscriptions)
+                       months: months, payouts: payouts, subscriptions: subscriptions, usage: usage)
     }
 
     public static func reviews(now: Date = .now) -> [Review] {
