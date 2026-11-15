@@ -51,7 +51,8 @@ public enum DemoData {
         }
     }
 
-    public static func figures(now: Date = .now) -> Figures {
+    /// `months` of monthly summaries: a year on the iPhone, more on the Mac to compare with the year before.
+    public static func figures(now: Date = .now, months monthCount: Int = 12) -> Figures {
         var random = Random(seed: ReportDay.string(now).unicodeScalars.reduce(7) { $0 &* 31 &+ UInt64($1.value) })
         var reports: [String: [SalesRow]] = [:]
         var discovery: [DiscoveryRow] = []
@@ -105,8 +106,8 @@ public enum DemoData {
         // Months and payouts: the apps' monthly totals, growing over the year; Moss sells a subscription.
         var months: [String: [SalesRow]] = [:]
         var payouts: [String: [FinanceRow]] = [:]
-        for (age, month) in ReportDay.recentMonths(12, from: now).enumerated() {
-            let growth = 0.55 + 0.45 * Double(12 - age) / 12
+        for (age, month) in ReportDay.recentMonths(monthCount, from: now).enumerated() {
+            let growth = 0.55 + 0.45 * Double(monthCount - age) / Double(monthCount)
             var monthRows: [SalesRow] = []
             var earned = 0.0
             for (index, sample) in samples.enumerated() where sample.versions.contains(where: { $0.state == "READY_FOR_DISTRIBUTION" }) {

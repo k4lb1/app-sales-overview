@@ -4,7 +4,8 @@ import Foundation
 /// Example Android apps and figures for the demo, in the shape the reports have, so every Google Play tile and sensor
 /// can be tried without an account.
 public enum PlayDemo {
-    public static func figures(now: Date = .now) -> PlayFigures {
+    /// `days` of daily reports, growing towards today: 60 are enough for the boards, the Mac's year-over-year needs more.
+    public static func figures(now: Date = .now, days dayCount: Int = 60) -> PlayFigures {
         let apps = [PlayApp(id: "com.example.tideline", name: "Tideline – Tide Tables"),
                     PlayApp(id: "com.example.moss", name: "Moss – Habit Garden"),
                     PlayApp(id: "com.example.kiln", name: "Kiln Timer")]
@@ -13,10 +14,11 @@ public enum PlayDemo {
         let countries = ["DE": 0.3, "US": 0.25, "IN": 0.2, "BR": 0.15, "GB": 0.1]
         var generator = SystemRandomNumberGenerator()
         var figures = PlayFigures(apps: apps)
-        for day in ReportDay.recent(60, from: now) {
+        for (age, day) in ReportDay.recent(dayCount, from: now).enumerated() {
+            let growth = 0.6 + 0.4 * Double(dayCount - age) / Double(dayCount)
             let weekday = Calendar(identifier: .gregorian).component(.weekday, from: ReportDay.date(day) ?? now)
             for app in apps {
-                let installs = Int(base[app.id]! * (weekday == 1 || weekday == 7 ? 1.25 : 1) * Double.random(in: 0.8...1.2, using: &generator))
+                let installs = Int(base[app.id]! * growth * (weekday == 1 || weekday == 7 ? 1.25 : 1) * Double.random(in: 0.8...1.2, using: &generator))
                 figures.installs.append(PlayInstallRow(day: day, package: app.id, installs: installs, uninstalls: installs / 3))
                 for (country, share) in countries {
                     figures.countries.append(PlayInstallRow(day: day, package: app.id, country: country,

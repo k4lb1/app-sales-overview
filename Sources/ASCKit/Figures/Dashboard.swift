@@ -70,7 +70,7 @@ public final class Dashboard {
 
     public func refresh() async {
         if isDemo {
-            figures = DemoData.figures()
+            figures = DemoData.figures(months: months)
             figures.rates = await Rates.current()
             reviews = DemoData.reviews()
             WidgetCenter.shared.reloadAllTimelines()
