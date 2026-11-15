@@ -77,6 +77,7 @@ swift run asc-peek discovery  # store analytics per app
 | `Shared` | The look the app and the widget share |
 | `App` | The iPhone app |
 | `Widget` | Home Screen and Lock Screen widgets |
+| `Sources/PlayKit` | Google Play for the Mac app: service account key, report files, reviews, crash rates (tests in `Tests/PlayKitTests`) |
 | `Sources/asc-peek` | Command-line tool for trying the API |
 
 ## License
