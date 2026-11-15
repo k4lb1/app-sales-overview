@@ -48,6 +48,12 @@ public struct Exploration {
         public let group: String
         public let value: Double
 
+        public init(day: Date, group: String, value: Double) {
+            self.day = day
+            self.group = group
+            self.value = value
+        }
+
         public var id: String { "\(day.timeIntervalSince1970)|\(group)" }
     }
 
@@ -55,6 +61,13 @@ public struct Exploration {
     public let points: [Point]
     /// Each group's total over the period, largest first.
     public let totals: [(group: String, value: Double)]
+
+    /// From points of any source, e.g. two stores' figures together; the totals are worked out from them.
+    public init(points: [Point]) {
+        self.points = points.sorted { $0.day < $1.day }
+        totals = Dictionary(grouping: points, by: \.group).map { ($0.key, $0.value.reduce(0) { $0 + $1.value }) }
+            .sorted { $0.1 > $1.1 }
+    }
 
     /// The largest groups by name, the rest folded into "Other" so the chart stays readable. Each day stacks them
     /// in the same order, the largest at the bottom.
@@ -95,9 +108,7 @@ extension Figures {
         let points = values.keys.sorted().flatMap { day in
             (values[day] ?? [:]).compactMap { group, value in ReportDay.date(day).map { Exploration.Point(day: $0, group: group, value: value) } }
         }
-        let totals = points.reduce(into: [String: Double]()) { $0[$1.group, default: 0] += $1.value }
-            .map { ($0.key, $0.value) }.sorted { $0.1 > $1.1 }
-        return Exploration(points: points, totals: totals)
+        return Exploration(points: points)
     }
 
     private func value(of row: SalesRow, _ metric: Metric) -> Double? {
