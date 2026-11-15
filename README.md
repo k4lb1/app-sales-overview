@@ -73,7 +73,8 @@ swift run asc-peek discovery  # store analytics per app
 | Folder | What's in it |
 |---|---|
 | `Sources/ASCKit` | App Store Connect API: token, apps and versions, sales reports, analytics reports, reviews |
-| `Shared` | Code for the app and the widget: Keychain, report cache, figures, exchange rates, theme |
+| `Sources/ASCKit/Figures` | What the apps make of the reports: Keychain, report cache, figures, exchange rates, Explore, statement |
+| `Shared` | The look the app and the widget share |
 | `App` | The iPhone app |
 | `Widget` | Home Screen and Lock Screen widgets |
 | `Sources/asc-peek` | Command-line tool for trying the API |
