@@ -141,7 +141,9 @@ public enum PlayData {
     public static func load(_ account: PlayAccount, months count: Int = 7, now: Date = .now) async throws -> PlayFigures {
         let client = try PlayClient(account: try account.serviceAccount)
         var figures = PlayFigures(apps: try await client.apps())
-        let months = ReportDay.recentMonths(count, from: now).map { $0.replacingOccurrences(of: "-", with: "") }
+        // This month first: Google writes its files during the month, and the newest days are in them.
+        let running = String(ReportDay.string(now).prefix(7))
+        let months = ([running] + ReportDay.recentMonths(count - 1, from: now)).map { $0.replacingOccurrences(of: "-", with: "") }
         let fresh = Set(months.sorted(by: >).prefix(2))
         func file(_ name: String) async -> Data? {
             if !fresh.contains(where: { name.contains($0) }), let cached = try? Data(contentsOf: folder.appending(path: cacheName(name))) {

@@ -86,13 +86,16 @@ public struct SubscriptionEvent: Codable, Hashable, Sendable {
 extension Client {
     /// What subscribers did on one day: started, converted, cancelled, came back. Empty when the account sells no
     /// subscriptions.
-    public func subscriptionEvents(vendor: String, day: String) async throws -> [SubscriptionEvent] {
+    public func subscriptionEvents(vendor: String, day: String, version: String = "1_4") async throws -> [SubscriptionEvent] {
         do {
             let data = try await get("/v1/salesReports", query: [
                 "filter[frequency]": "DAILY", "filter[reportType]": "SUBSCRIPTION_EVENT", "filter[reportSubType]": "SUMMARY",
-                "filter[vendorNumber]": vendor, "filter[reportDate]": day, "filter[version]": "1_4",
+                "filter[vendorNumber]": vendor, "filter[reportDate]": day, "filter[version]": version,
             ])
             return SubscriptionEvent.parse(String(decoding: try Gzip.unzip(data), as: UTF8.self))
+        } catch ASCError.http(400, let body) where version == "1_4" && body.lowercased().contains("version") {
+            // Apple's documentation names 1_3 for this report; 1_4 is what the summary report has.
+            return try await subscriptionEvents(vendor: vendor, day: day, version: "1_3")
         } catch ASCError.http(let status, let body) where status == 404 || body.contains("Invalid vendor number") {
             if body.contains("not available yet") { throw SalesReportError.notYet }
             return []
