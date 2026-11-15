@@ -1,6 +1,28 @@
 import Foundation
 
-/// One of the App Store's top charts: free, paid or grossing, for iPhone or Mac apps, in one country, over all
+/// Which App Store: Apple keeps separate charts and searches for iPhone, iPad and Mac apps. Vision Pro apps have
+/// neither in the public feeds.
+public enum StorePlatform: String, Codable, CaseIterable, Sendable {
+    case iPhone, iPad, mac
+
+    var feed: String {
+        switch self {
+        case .iPhone: "applications"
+        case .iPad: "ipadapplications"
+        case .mac: "macapps"
+        }
+    }
+
+    var searchEntity: String {
+        switch self {
+        case .iPhone: "software"
+        case .iPad: "iPadSoftware"
+        case .mac: "macSoftware"
+        }
+    }
+}
+
+/// One of the App Store's top charts: free, paid or grossing, for iPhone, iPad or Mac apps, in one country, over all
 /// categories or one. Apple's public feeds give the first 100 places.
 public struct TopChart: Codable, Hashable, Sendable {
     public enum List: String, Codable, CaseIterable, Sendable {
@@ -8,21 +30,21 @@ public struct TopChart: Codable, Hashable, Sendable {
     }
 
     public var list: List
-    public var mac: Bool
+    public var platform: StorePlatform
     /// ISO code in lower case, e.g. "de".
     public var country: String
     /// Apple's category ID, e.g. 6011 for Music; nil for all categories.
     public var genre: Int?
 
-    public init(list: List, mac: Bool, country: String, genre: Int?) {
+    public init(list: List, platform: StorePlatform, country: String, genre: Int?) {
         self.list = list
-        self.mac = mac
+        self.platform = platform
         self.country = country.lowercased()
         self.genre = genre
     }
 
     var url: URL {
-        let feed = "top\(list.rawValue)\(mac ? "macapps" : "applications")"
+        let feed = "top\(list.rawValue)\(platform.feed)"
         let genrePart = genre.map { "/genre=\($0)" } ?? ""
         return URL(string: "https://itunes.apple.com/\(country)/rss/\(feed)/limit=100\(genrePart)/json")!
     }
@@ -54,6 +76,8 @@ public struct StoreListing: Codable, Hashable, Sendable {
     public var id: String
     public var name: String
     public var mac: Bool
+    /// Whether it runs on the iPad too, so it's in the iPad charts.
+    public var iPad: Bool
     public var genre: Int
     public var genreName: String
     public var price: Double
@@ -65,11 +89,12 @@ public struct StoreListing: Codable, Hashable, Sendable {
     public var icon: URL?
     public var developer: String
 
-    public init(id: String, name: String, mac: Bool, genre: Int, genreName: String, price: Double, currency: String,
+    public init(id: String, name: String, mac: Bool, iPad: Bool = false, genre: Int, genreName: String, price: Double, currency: String,
                 rating: Double, ratings: Int, version: String, released: Date?, icon: URL?, developer: String = "") {
         self.id = id
         self.name = name
         self.mac = mac
+        self.iPad = iPad
         self.genre = genre
         self.genreName = genreName
         self.price = price
@@ -91,10 +116,10 @@ public struct StoreListing: Codable, Hashable, Sendable {
 
     /// Apps whose name or developer matches, as the App Store's search finds them; or the one app an App Store link
     /// ("…/id123456789") points to.
-    public static func search(_ text: String, country: String, mac: Bool = false) async throws -> [StoreListing] {
+    public static func search(_ text: String, country: String, platform: StorePlatform = .iPhone) async throws -> [StoreListing] {
         if let match = text.firstMatch(of: /id(\d{6,})/) { return try await load(ids: [String(match.1)], country: country) }
         return try await request("search", [URLQueryItem(name: "term", value: text), URLQueryItem(name: "country", value: country.lowercased()),
-                                            URLQueryItem(name: "entity", value: mac ? "macSoftware" : "software"),
+                                            URLQueryItem(name: "entity", value: platform.searchEntity),
                                             URLQueryItem(name: "limit", value: "15")])
     }
 
@@ -114,6 +139,7 @@ public struct StoreListing: Codable, Hashable, Sendable {
                 let currentVersionReleaseDate: String?
                 let artworkUrl100: String?
                 let artistName: String?
+                let supportedDevices: [String]?
             }
             let results: [App]
         }
@@ -121,7 +147,8 @@ public struct StoreListing: Codable, Hashable, Sendable {
         components.queryItems = query
         let (data, _) = try await URLSession.shared.data(from: components.url!)
         return try JSONDecoder().decode(Answer.self, from: data).results.map { app in
-            StoreListing(id: String(app.trackId), name: app.trackName, mac: app.kind == "mac-software", genre: app.primaryGenreId ?? 0,
+            StoreListing(id: String(app.trackId), name: app.trackName, mac: app.kind == "mac-software",
+                         iPad: app.supportedDevices?.contains { $0.hasPrefix("iPad") } ?? false, genre: app.primaryGenreId ?? 0,
                          genreName: app.primaryGenreName ?? "", price: app.price ?? 0, currency: app.currency ?? "",
                          rating: app.averageUserRating ?? 0, ratings: app.userRatingCount ?? 0, version: app.version ?? "",
                          released: app.currentVersionReleaseDate.flatMap { ISO8601DateFormatter().date(from: $0) },
