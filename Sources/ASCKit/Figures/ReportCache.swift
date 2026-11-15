@@ -44,7 +44,7 @@ public enum ReportCache {
 
     /// When the key changes, the old account's reports go.
     public static func clear() {
-        for kind in ["reports", "analytics", "months", "payouts"] {
+        for kind in ["reports", "analytics", "months", "payouts", "subscriptions"] {
             try? FileManager.default.removeItem(at: AppGroup.folder.appending(path: kind))
         }
     }
@@ -179,6 +179,66 @@ public enum MonthCache {
             } else if let rows = try? await fetch(month) {
                 result[month] = rows
                 if !rows.isEmpty || month < settled { save(rows, kind, month) }
+            }
+        }
+        return result
+    }
+}
+
+/// One day of subscriptions: who was subscribed at its end, and what subscribers did during it.
+public struct SubscriptionDay: Codable, Hashable, Sendable {
+    public var rows: [SubscriptionRow]
+    public var events: [SubscriptionEvent]
+
+    public init(rows: [SubscriptionRow], events: [SubscriptionEvent]) {
+        self.rows = rows
+        self.events = events
+    }
+}
+
+/// The subscription reports per day on disk, like the sales: a day Apple has reported is fetched once.
+public enum SubscriptionCache {
+    private static var folder: URL {
+        let url = AppGroup.folder.appending(path: "subscriptions")
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    /// The given days from disk, the missing ones from Apple, six at a time; days not reported yet are left out.
+    public static func days(_ wanted: [String], client: Client, vendor: String) async throws -> [String: SubscriptionDay] {
+        var result: [String: SubscriptionDay] = [:]
+        var missing: [String] = []
+        for day in wanted {
+            if let data = try? Data(contentsOf: folder.appending(path: "\(day).json")),
+               let stored = try? JSONDecoder().decode(SubscriptionDay.self, from: data) {
+                result[day] = stored
+            } else {
+                missing.append(day)
+            }
+        }
+        try await withThrowingTaskGroup(of: (String, SubscriptionDay?).self) { group in
+            var queue = missing[...]
+            func next() {
+                guard let day = queue.popFirst() else { return }
+                group.addTask {
+                    do {
+                        async let rows = client.subscriptionReport(vendor: vendor, day: day)
+                        async let events = client.subscriptionEvents(vendor: vendor, day: day)
+                        return (day, SubscriptionDay(rows: try await rows, events: try await events))
+                    } catch SalesReportError.notYet {
+                        return (day, nil)
+                    }
+                }
+            }
+            for _ in 0..<6 { next() }
+            for try await (day, stored) in group {
+                if let stored {
+                    result[day] = stored
+                    if let data = try? JSONEncoder().encode(stored) {
+                        try? data.write(to: folder.appending(path: "\(day).json"), options: .atomic)
+                    }
+                }
+                next()
             }
         }
         return result

@@ -13,12 +13,14 @@ public struct Figures: Sendable {
     public var payouts: [String: [FinanceRow]] = [:]
     /// Active subscriptions as of the newest day Apple reported.
     public var subscriptions: [SubscriptionRow] = []
+    /// Report day → the subscriptions and their events, for the trend; empty unless the app asks for history.
+    public var subscriptionDays: [String: SubscriptionDay] = [:]
     /// Crashes and sessions per day and app, from Apple's analytics; empty until enough users share analytics.
     public var usage: [UsageRow] = []
 
     public init(apps: [StoreApp] = [], days: [String: [SalesRow]] = [:], rates: Rates = .cached(),
                 discovery: [DiscoveryRow] = [], months: [String: [SalesRow]] = [:], payouts: [String: [FinanceRow]] = [:],
-                subscriptions: [SubscriptionRow] = [], usage: [UsageRow] = []) {
+                subscriptions: [SubscriptionRow] = [], usage: [UsageRow] = [], subscriptionDays: [String: SubscriptionDay] = [:]) {
         self.apps = apps
         self.days = days
         self.rates = rates
@@ -27,6 +29,7 @@ public struct Figures: Sendable {
         self.payouts = payouts
         self.subscriptions = subscriptions
         self.usage = usage
+        self.subscriptionDays = subscriptionDays
     }
 
     /// Crashes per 1,000 sessions on the newest day that had sessions; nil while Apple has sent none.
@@ -124,7 +127,11 @@ public struct Figures: Sendable {
 
     /// Monthly recurring revenue: the proceeds of the paid subscriptions at their standard price, per month.
     public func monthlyRecurring(app: StoreApp? = nil) -> Double {
-        let sums = subscriptions.filter { app == nil || $0.appID == app!.id }
+        monthlyRecurring(subscriptions, app: app)
+    }
+
+    func monthlyRecurring(_ rows: [SubscriptionRow], app: StoreApp?) -> Double {
+        let sums = rows.filter { app == nil || $0.appID == app!.id }
             .reduce(into: [String: Double]()) { $0[$1.currency, default: 0] += $1.proceeds * Double($1.active) * $1.perMonth }
         return rates.total(sums, in: DisplayCurrency.current).total
     }

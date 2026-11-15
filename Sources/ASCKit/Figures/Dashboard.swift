@@ -21,6 +21,8 @@ public final class Dashboard {
     /// How many months of monthly summaries and financial reports are loaded: a year on the iPhone, two years and a
     /// month on the Mac, to compare with the year before.
     public var months = 12
+    /// Days of subscription reports for the trend and the events; the iPhone shows only the newest day.
+    public var subscriptionHistory = 0
 
     public init() {
         account = KeyStore.load()
@@ -109,6 +111,10 @@ public final class Dashboard {
                 figures.subscriptions = rows
                 break
             }
+        }
+        // An account without subscriptions has nothing to show over time either.
+        if subscriptionHistory > 0, !figures.subscriptions.isEmpty {
+            figures.subscriptionDays = (try? await SubscriptionCache.days(ReportDay.recent(subscriptionHistory), client: client, vendor: vendor)) ?? [:]
         }
     }
 

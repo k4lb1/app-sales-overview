@@ -139,7 +139,37 @@ public enum DemoData {
             }
         }
         return Figures(apps: apps, days: reports, rates: Rates.cached(), discovery: discovery,
-                       months: months, payouts: payouts, subscriptions: subscriptions, usage: usage)
+                       months: months, payouts: payouts, subscriptions: subscriptions, usage: usage,
+                       subscriptionDays: subscriptionDays(ending: subscriptions, now: now, random: &random))
+    }
+
+    /// Moss Plus over the last 90 days, ending at today's subscribers: trials start every day, about half convert,
+    /// a few pay-ers cancel, now and then for a billing issue.
+    private static func subscriptionDays(ending newest: [SubscriptionRow], now: Date, random: inout Random) -> [String: SubscriptionDay] {
+        var result: [String: SubscriptionDay] = [:]
+        var rows = newest
+        for (age, day) in ReportDay.recent(90, from: now).enumerated() {
+            let trials = Int(random.next(4, 9)), converted = Int(random.next(2, 5)), lostTrials = Int(random.next(1, 4))
+            let cancelled = Int(random.next(0, 3.2)), billing = random.next(0, 1) < 0.15 ? 1 : 0, back = random.next(0, 1) < 0.1 ? 1 : 0
+            func event(_ name: String, _ count: Int, offer: String = "", reason: String = "") -> SubscriptionEvent? {
+                count > 0 ? SubscriptionEvent(date: day, event: name, appID: "demo1", name: "Moss Plus Monthly", offerType: offer,
+                                              country: "US", cancellationReason: reason, quantity: count) : nil
+            }
+            let events = [
+                event("Start Introductory Offer", trials, offer: "Free Trial"),
+                event("Paid Subscription from Introductory Offer", converted),
+                event("Cancel", lostTrials, offer: "Free Trial", reason: "Canceled"),
+                event("Cancel", cancelled, reason: age % 9 == 0 ? "Price increase" : "Canceled"),
+                event("Cancel", billing, reason: "Billing issue"),
+                event("Reactivate", back),
+            ].compactMap { $0 }
+            result[day] = SubscriptionDay(rows: rows, events: events)
+            // The day before had the conversions and comebacks still to come, and the cancelled ones still on board.
+            rows[0].active = max(0, rows[0].active - converted - back + cancelled + billing)
+            rows[0].trials = max(0, rows[0].trials - trials + converted + lostTrials)
+            if age % 4 == 0 { rows[1].active = max(0, rows[1].active - 1) }
+        }
+        return result
     }
 
     public static func reviews(now: Date = .now) -> [Review] {
