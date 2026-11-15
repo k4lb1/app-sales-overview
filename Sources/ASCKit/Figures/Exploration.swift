@@ -1,7 +1,7 @@
 import Foundation
 
 /// What the Explore tab can chart: a metric over days, split by one dimension.
-public enum Metric: String, CaseIterable, Identifiable {
+public enum Metric: String, CaseIterable, Identifiable, Codable, Sendable {
     case downloads, proceeds, updates, redownloads, refunds, impressions, pageViews
 
     public var id: Self { self }
@@ -26,7 +26,7 @@ public enum Metric: String, CaseIterable, Identifiable {
     }
 }
 
-public enum Split: String, CaseIterable, Identifiable {
+public enum Split: String, CaseIterable, Identifiable, Codable, Sendable {
     case none, app, country, device, source
 
     public var id: Self { self }
