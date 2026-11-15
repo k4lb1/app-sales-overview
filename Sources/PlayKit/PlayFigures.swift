@@ -78,6 +78,18 @@ public struct PlayFigures: Sendable {
         reviews[index].replyDate = .now
     }
 
+    /// Installs and proceeds (after Google's fee) per month ("yyyy-MM"), from the daily reports.
+    public func monthly(app: PlayApp? = nil) -> [String: (installs: Int, proceeds: [String: Double])] {
+        var months: [String: (installs: Int, proceeds: [String: Double])] = [:]
+        for row in installs where app == nil || row.package == app!.id {
+            months[String(row.day.prefix(7)), default: (0, [:])].installs += row.installs
+        }
+        for row in sales where app == nil || row.package == app!.id {
+            months[String(row.day.prefix(7)), default: (0, [:])].proceeds[row.currency, default: 0] += row.amount * Self.afterFee
+        }
+        return months
+    }
+
     /// The newest day's crash rate.
     public func crashRate(app: PlayApp) -> PlayCrashDay? {
         crashes[app.id]?.max { $0.day < $1.day }

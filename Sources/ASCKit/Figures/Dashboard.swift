@@ -18,6 +18,9 @@ public final class Dashboard {
     /// Runs after each refresh with fresh numbers, the demo's too: the iPhone app notifies from here, the Mac app
     /// checks its sensors.
     public var afterRefresh: (@MainActor (Figures, [Review]) async -> Void)?
+    /// How many months of monthly summaries and financial reports are loaded: a year on the iPhone, two years and a
+    /// month on the Mac, to compare with the year before.
+    public var months = 12
 
     public init() {
         account = KeyStore.load()
@@ -98,7 +101,7 @@ public final class Dashboard {
 
     /// The last 12 months of sales and of Apple's financial reports, and the active subscriptions.
     private func loadMoney(client: Client, vendor: String) async {
-        let months = ReportDay.recentMonths(12)
+        let months = ReportDay.recentMonths(self.months)
         figures.months = await MonthCache.months("months", months) { try await client.salesReport(vendor: vendor, month: $0) }
         figures.payouts = await MonthCache.months("payouts", months) { try await client.financeReport(vendor: vendor, month: $0) }
         for day in ReportDay.recent(3) {
