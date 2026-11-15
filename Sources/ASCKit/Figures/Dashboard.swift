@@ -15,7 +15,8 @@ public final class Dashboard {
     public private(set) var reviews: [Review] = []
     /// Why there are no analytics, when Apple refused them (a key without the Admin role).
     public private(set) var analyticsError: String?
-    /// Runs after each refresh with fresh numbers: the iPhone app notifies from here, the Mac app checks its sensors.
+    /// Runs after each refresh with fresh numbers, the demo's too: the iPhone app notifies from here, the Mac app
+    /// checks its sensors.
     public var afterRefresh: (@MainActor (Figures, [Review]) async -> Void)?
 
     public init() {
@@ -70,6 +71,7 @@ public final class Dashboard {
             figures.rates = await Rates.current()
             reviews = DemoData.reviews()
             WidgetCenter.shared.reloadAllTimelines()
+            await afterRefresh?(figures, reviews)
             return
         }
         guard let account, !isLoading else { return }

@@ -8,7 +8,10 @@ struct AppSalesApp: App {
     init() {
         Notifier.register()
         let dashboard = Dashboard()
-        dashboard.afterRefresh = { figures, reviews in await Notifier.notice(figures, reviews: reviews, notify: false) }
+        // The demo's apps aren't remembered as seen.
+        dashboard.afterRefresh = { figures, reviews in
+            if !DemoData.isOn { await Notifier.notice(figures, reviews: reviews, notify: false) }
+        }
         _dashboard = State(initialValue: dashboard)
     }
     @Environment(\.scenePhase) private var scenePhase
