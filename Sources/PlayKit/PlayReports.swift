@@ -108,7 +108,7 @@ public enum PlayReports {
     }
 
     /// CSV with quoted fields (commas, quotes and line breaks inside quotes).
-    static func rows(_ text: String) -> [[String]] {
+    public static func rows(_ text: String) -> [[String]] {
         var rows: [[String]] = [], row: [String] = [], field = "", quoted = false
         var characters = text.makeIterator()
         while let character = characters.next() {
