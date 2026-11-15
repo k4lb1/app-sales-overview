@@ -121,28 +121,18 @@ public struct PlayAccount: Codable, Equatable, Sendable {
 }
 
 public enum PlayKeyStore {
-    private static let service = "studio.oxdeploy.play.account"
+    public static let service = "studio.oxdeploy.play.account"
 
     public static func load() -> PlayAccount? {
-        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
-                                    kSecReturnData as String: true, kSecMatchLimit as String: kSecMatchLimitOne]
-        var result: AnyObject?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess, let data = result as? Data else { return nil }
-        return try? JSONDecoder().decode(PlayAccount.self, from: data)
+        Keychain.load(service).flatMap { try? JSONDecoder().decode(PlayAccount.self, from: $0) }
     }
 
-    public static func save(_ account: PlayAccount) {
-        delete()
+    public static func save(_ account: PlayAccount, inICloud: Bool = false) {
         guard let data = try? JSONEncoder().encode(account) else { return }
-        let item: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service,
-                                   kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
-                                   kSecValueData as String: data]
-        SecItemAdd(item as CFDictionary, nil)
+        Keychain.save(data, service: service, inICloud: inICloud)
     }
 
-    public static func delete() {
-        SecItemDelete([kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: service] as CFDictionary)
-    }
+    public static func delete() { Keychain.delete(service) }
 }
 
 /// Reads the reports with a cache on disk: a month that's over doesn't change any more, so only this month and the

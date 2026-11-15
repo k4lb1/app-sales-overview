@@ -53,7 +53,7 @@ public final class Dashboard {
         _ = try await Client(key: account.key).apps()
         if self.account != account { ReportCache.clear() }
         if isDemo { stopDemo() }
-        KeyStore.save(account)
+        KeyStore.save(account, inICloud: Keychain.keysInICloud)
         self.account = account
         figures = Figures()
         await refresh()
