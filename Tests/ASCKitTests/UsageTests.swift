@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import ASCKit
 
-/// Apple's crash and session reports as documented; real files are only sent once enough users share analytics.
+/// Parsing of Apple's crash and session reports, based on the documented report format.
 struct UsageTests {
     @Test func crashLinesAddUpPerDayAndApp() {
         let text = """

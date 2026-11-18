@@ -3,8 +3,8 @@ import Security
 import Testing
 @testable import PlayKit
 
-/// What can be checked without a Google account: the key, the token's signature, the report files and the sums.
-/// The report contents follow Google's documented columns; the real files are only seen with a Play account.
+/// Covers key handling, token signing, report file parsing and aggregation for Google Play.
+/// Fixtures follow the column layout documented by Google.
 struct PlayKitTests {
     @Test func bucketFromWhatTheConsoleShows() {
         #expect(PlayAccount.bucket(from: "gs://pubsite_prod_rev_0123456789/stats/installs/") == "pubsite_prod_rev_0123456789")

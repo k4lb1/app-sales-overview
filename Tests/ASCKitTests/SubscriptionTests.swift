@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import ASCKit
 
-/// Apple's subscription event report with the documented columns; our apps sell no subscriptions yet.
+/// Parsing of Apple's subscription event report, based on the documented columns.
 struct SubscriptionTests {
     static let header = ["Event Date", "Event", "App Name", "App Apple ID", "Subscription Name", "Subscription Apple ID",
                          "Subscription Group ID", "Standard Subscription Duration", "Subscription Offer Type",

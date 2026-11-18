@@ -3,7 +3,7 @@ import Foundation
 import Testing
 @testable import ASCKit
 
-/// The client secret as Apple's OAuth guide describes it; there's no Apple Ads account to try it against.
+/// Verifies that the Apple Ads client secret is a valid ES256-signed JWT as specified by Apple's OAuth documentation.
 struct AppleAdsTests {
     @Test func clientSecretIsSignedWithTheKey() async throws {
         let key = AdsAccount.newKey()
