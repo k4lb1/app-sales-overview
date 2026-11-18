@@ -1,9 +1,9 @@
 // swift-tools-version: 6.2
 import PackageDescription
 
-/// ASCKit talks to the App Store Connect API; the iPhone app will use it too.
+/// ASCKit is the App Store Connect API client shared by the apps.
 /// PlayKit reads Google Play (service account, report files, reviews, crash rates) for the Mac app.
-/// asc-peek is the M0 tool: prints what Apple returns for our own key, to see the real data first.
+/// asc-peek is a command-line tool that prints the raw App Store Connect responses for a configured API key.
 let package = Package(
     name: "AppSales",
     platforms: [.macOS(.v15), .iOS(.v26)],
