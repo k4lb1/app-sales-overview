@@ -49,13 +49,19 @@ public enum ReportCache {
         }
     }
 
+    /// Apple sometimes answers "no sales" before a day's report is ready, so an empty day is asked for again
+    /// until it's three days old.
+    static func isSettled(_ rows: [SalesRow], day: String, now: Date = .now) -> Bool {
+        !rows.isEmpty || day < ReportDay.string(now.addingTimeInterval(-3 * 86_400))
+    }
+
     /// The given days from disk, the missing ones from Apple, six at a time. Days Apple hasn't
     /// reported yet are left out.
     public static func days(_ wanted: [String], client: Client, vendor: String) async throws -> [String: [SalesRow]] {
         var result: [String: [SalesRow]] = [:]
         var missing: [String] = []
         for day in wanted {
-            if let rows = load(day) { result[day] = rows } else { missing.append(day) }
+            if let rows = load(day), isSettled(rows, day: day) { result[day] = rows } else { missing.append(day) }
         }
         try await withThrowingTaskGroup(of: (String, [SalesRow]?).self) { group in
             var queue = missing[...]
