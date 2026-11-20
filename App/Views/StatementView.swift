@@ -137,7 +137,7 @@ enum StatementPDF {
                 HStack(alignment: .firstTextBaseline) {
                     Text("Statement \(statement.title)").font(.system(size: 20, weight: .semibold))
                     Spacer()
-                    Text("App Sales Overview").font(.system(size: 9)).foregroundStyle(.gray)
+                    Text(verbatim: "App Sales Overview").font(.system(size: 9)).foregroundStyle(.gray)
                 }
                 content
                 Spacer(minLength: 0)
@@ -160,17 +160,18 @@ enum StatementPDF {
         let money = { (value: Double) in value.formatted(.currency(code: statement.currency)) }
         return VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .top, spacing: 40) {
-                figure("Proceeds", money(statement.total))
-                if !statement.payout.isEmpty { figure("Apple's financial report", money(statement.payoutConverted)) }
+                figure(String(localized: "Proceeds"), money(statement.total))
+                if !statement.payout.isEmpty { figure(String(localized: "Apple's financial report"), money(statement.payoutConverted)) }
             }
-            table("Per app", ["App", "Downloads", "In-app", "Refunds", "Proceeds"], statement.apps.map {
+            table(String(localized: "Per app"), [app, downloads, inApp, refunds, proceeds], statement.apps.map {
                 [$0.app, "\($0.downloads)", "\($0.purchases)", "\($0.refunds)", money($0.converted)]
             })
-            table("Per currency, as Apple reports it", ["Currency", "Proceeds", statement.currency], statement.currencies.map {
+            table(String(localized: "Per currency, as Apple reports it"), [currency, proceeds, statement.currency], statement.currencies.map {
                 [$0.currency, $0.proceeds.formatted(.number.precision(.fractionLength(2))), money($0.converted)]
             })
             if !statement.payout.isEmpty {
-                table("Apple's financial report", ["Currency", "Amount", statement.currency], statement.payout.sorted { $0.key < $1.key }.map {
+                table(String(localized: "Apple's financial report"), [currency, String(localized: "Amount"), statement.currency],
+                      statement.payout.sorted { $0.key < $1.key }.map {
                     [$0.key, $0.value.formatted(.number.precision(.fractionLength(2))),
                      money(rates.total([$0.key: $0.value], in: statement.currency).total)]
                 })
@@ -181,7 +182,8 @@ enum StatementPDF {
     }
 
     private static func lines(_ lines: [Statement.Line], statement: Statement) -> some View {
-        table("Per app and country", ["App", "Country", "Downloads", "In-app", "Refunds", "Proceeds", statement.currency], lines.map {
+        table(String(localized: "Per app and country"), [app, String(localized: "Country"), downloads, inApp, refunds, proceeds, statement.currency],
+              leading: 2, lines.map {
             [$0.app, Figures.countryName($0.country), "\($0.downloads)", "\($0.purchases)", "\($0.refunds)",
              $0.currency.isEmpty ? "–" : "\($0.proceeds.formatted(.number.precision(.fractionLength(2)))) \($0.currency)",
              $0.converted.formatted(.currency(code: statement.currency))]
@@ -195,14 +197,21 @@ enum StatementPDF {
         }
     }
 
-    /// The first column left, the others right-aligned numbers.
-    private static func table(_ title: String, _ header: [String], _ rows: [[String]]) -> some View {
+    private static var app: String { String(localized: "App") }
+    private static var downloads: String { String(localized: "Downloads") }
+    private static var inApp: String { String(localized: "In-app") }
+    private static var refunds: String { String(localized: "Refunds") }
+    private static var proceeds: String { String(localized: "Proceeds") }
+    private static var currency: String { String(localized: "Currency") }
+
+    /// The first `leading` columns left, the others right-aligned numbers.
+    private static func table(_ title: String, _ header: [String], leading: Int = 1, _ rows: [[String]]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title).font(.system(size: 11, weight: .semibold))
             Grid(alignment: .trailing, horizontalSpacing: 12, verticalSpacing: 4) {
                 GridRow {
                     ForEach(header.indices, id: \.self) { index in
-                        Text(header[index]).gridColumnAlignment(index == 0 || (index == 1 && header[1] == "Country") ? .leading : .trailing)
+                        Text(header[index]).gridColumnAlignment(index < leading ? .leading : .trailing)
                     }
                 }
                 .font(.system(size: 8, weight: .medium)).foregroundStyle(.gray)

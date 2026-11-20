@@ -17,20 +17,20 @@ struct AppDetailView: View {
                 }
 
                 HStack(spacing: 12) {
-                    figure("Downloads", "\(dashboard.figures.units(.download, days: 30, app: app))")
-                    figure("Updates", "\(dashboard.figures.units(.update, days: 30, app: app))")
+                    figure("Downloads", dashboard.figures.units(.download, days: 30, app: app).formatted())
+                    figure("Updates", dashboard.figures.units(.update, days: 30, app: app).formatted())
                 }
                 figure("Proceeds", dashboard.figures.proceedsText(days: 30, app: app))
                 if dashboard.figures.activeSubscriptions(app: app) + dashboard.figures.trials(app: app) > 0 {
                     HStack(spacing: 12) {
-                        figure("Subscriptions", "\(dashboard.figures.activeSubscriptions(app: app))")
+                        figure("Subscriptions", dashboard.figures.activeSubscriptions(app: app).formatted())
                         figure("Per month", dashboard.figures.monthlyRecurring(app: app).formatted(.currency(code: DisplayCurrency.current).precision(.fractionLength(0))))
                     }
                 }
                 if !dashboard.figures.discovery.isEmpty {
                     HStack(spacing: 12) {
-                        figure("Impressions", "\(dashboard.figures.impressions(days: 30, app: app))")
-                        figure("Page views", "\(dashboard.figures.pageViews(days: 30, app: app))")
+                        figure("Impressions", dashboard.figures.impressions(days: 30, app: app).formatted())
+                        figure("Page views", dashboard.figures.pageViews(days: 30, app: app).formatted())
                     }
                 }
 

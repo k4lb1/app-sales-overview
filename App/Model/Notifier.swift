@@ -13,19 +13,19 @@ enum Notifier {
 
         var title: String {
             switch self {
-            case .status: "Review status"
-            case .reviews: "New reviews"
-            case .summary: "Yesterday's numbers"
-            case .milestones: "Milestones"
+            case .status: String(localized: "Review status")
+            case .reviews: String(localized: "New reviews")
+            case .summary: String(localized: "Yesterday's numbers")
+            case .milestones: String(localized: "Milestones")
             }
         }
 
         var detail: String {
             switch self {
-            case .status: "When a version goes into review, is approved or rejected."
-            case .reviews: "When someone reviews one of your apps."
-            case .summary: "In the morning, once Apple has the new day."
-            case .milestones: "When an app reaches 10, 100, 1,000 … downloads."
+            case .status: String(localized: "When a version goes into review, is approved or rejected.")
+            case .reviews: String(localized: "When someone reviews one of your apps.")
+            case .summary: String(localized: "In the morning, once Apple has the new day.")
+            case .milestones: String(localized: "When an app reaches 10, 100, 1,000 … downloads.")
             }
         }
     }
@@ -105,7 +105,7 @@ enum Notifier {
         let fresh = reviews.filter { !seen.contains($0.id) }
         if !seen.isEmpty {
             for review in fresh.prefix(3) {
-                let name = figures.apps.first { $0.id == review.appID }?.name ?? "Your app"
+                let name = figures.apps.first { $0.id == review.appID }?.name ?? String(localized: "Your app")
                 messages.append((.reviews, "\(name) \(String(repeating: "★", count: review.rating))",
                                  review.title.isEmpty ? review.body : review.title))
             }
@@ -115,7 +115,8 @@ enum Notifier {
 
         if let latest = figures.latestDay, latest != defaults?.string(forKey: "seen.day") {
             if defaults?.string(forKey: "seen.day") != nil {
-                messages.append((.summary, "Yesterday", "\(figures.units(.download, days: 1)) downloads, \(figures.proceedsText(days: 1))"))
+                let downloads = String(localized: "\(figures.units(.download, days: 1)) downloads")
+                messages.append((.summary, String(localized: "Yesterday"), String(localized: "\(downloads), \(figures.proceedsText(days: 1))")))
             }
             defaults?.set(latest, forKey: "seen.day")
         }
@@ -125,7 +126,7 @@ enum Notifier {
             let downloads = figures.lifetimeDownloads(app: app)
             guard let milestone = Self.milestones.last(where: { $0 <= downloads }) else { continue }
             if let before = reached[app.id], milestone > before {
-                messages.append((.milestones, app.name, "\(milestone.formatted()) downloads. Well done."))
+                messages.append((.milestones, app.name, String(localized: "\(milestone.formatted()) downloads. Well done.")))
             }
             reached[app.id] = max(milestone, reached[app.id] ?? 0)
         }
@@ -145,10 +146,10 @@ enum Notifier {
     private static func statusMessage(app: StoreApp, version: StoreApp.Version) -> (title: String, body: String)? {
         let name = "\(app.name) \(version.string)"
         switch version.state {
-        case "IN_REVIEW": return (name, "Apple is reviewing it now.")
-        case "PENDING_DEVELOPER_RELEASE": return (name, "Approved. Release it in App Store Connect when you're ready.")
-        case "READY_FOR_DISTRIBUTION": return (name, "It's in the App Store.")
-        case "REJECTED", "METADATA_REJECTED", "INVALID_BINARY": return (name, "Rejected. Apple's message is in App Store Connect.")
+        case "IN_REVIEW": return (name, String(localized: "Apple is reviewing it now."))
+        case "PENDING_DEVELOPER_RELEASE": return (name, String(localized: "Approved. Release it in App Store Connect when you're ready."))
+        case "READY_FOR_DISTRIBUTION": return (name, String(localized: "It's in the App Store."))
+        case "REJECTED", "METADATA_REJECTED", "INVALID_BINARY": return (name, String(localized: "Rejected. Apple's message is in App Store Connect."))
         default: return nil
         }
     }

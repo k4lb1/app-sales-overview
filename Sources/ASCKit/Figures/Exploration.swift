@@ -8,6 +8,19 @@ public enum Metric: String, CaseIterable, Identifiable, Codable, Sendable {
 
     public var title: String {
         switch self {
+        case .downloads: String(localized: "Downloads")
+        case .proceeds: String(localized: "Proceeds")
+        case .updates: String(localized: "Updates")
+        case .redownloads: String(localized: "Re-downloads")
+        case .refunds: String(localized: "Refunds")
+        case .impressions: String(localized: "Impressions")
+        case .pageViews: String(localized: "Page views")
+        }
+    }
+
+    /// The column in the CSV export, in English like the other columns.
+    public var column: String {
+        switch self {
         case .downloads: "Downloads"
         case .proceeds: "Proceeds"
         case .updates: "Updates"
@@ -32,6 +45,17 @@ public enum Split: String, CaseIterable, Identifiable, Codable, Sendable {
     public var id: Self { self }
 
     public var title: String {
+        switch self {
+        case .none: String(localized: "None")
+        case .app: String(localized: "App")
+        case .country: String(localized: "Country")
+        case .device: String(localized: "Device")
+        case .source: String(localized: "Source")
+        }
+    }
+
+    /// The column in the CSV export, in English like the other columns.
+    public var column: String {
         switch self {
         case .none: "None"
         case .app: "App"
@@ -84,7 +108,7 @@ public struct Exploration {
         totals.prefix(top).map(\.group) + (totals.count > top ? [Self.other] : [])
     }
 
-    public static let other = "Other"
+    public static let other = String(localized: "Other")
 }
 
 extension Figures {
@@ -129,7 +153,7 @@ extension Figures {
         case .none, .source: metric.title
         case .app: apps.first { belongs(row, to: $0) }?.name ?? row.title
         case .country: Self.countryName(row.country)
-        case .device: row.device.isEmpty ? "Unknown" : row.device
+        case .device: row.device.isEmpty ? String(localized: "Unknown") : row.device
         }
     }
 
@@ -138,7 +162,7 @@ extension Figures {
         case .none, .device: metric.title
         case .app: apps.first { $0.id == row.appID }?.name ?? row.appID
         case .country: Self.countryName(row.territory)
-        case .source: row.sourceType.isEmpty ? "Unavailable" : row.sourceType
+        case .source: Self.sourceName(row.sourceType)
         }
     }
 
@@ -177,11 +201,11 @@ extension Figures {
             }
         }
         let salesDays = Set(reportedDays(count)), storeDays = discoveryDays(count)
-        let header = metrics.map { $0 == .proceeds ? "\($0.title) (\(DisplayCurrency.current))" : $0.title }
+        let header = metrics.map { $0 == .proceeds ? "\($0.column) (\(DisplayCurrency.current))" : $0.column }
         // Every line is one app's (by the app column, or by the split), so it can say which version came out that day.
         let released = releasesByDay()
         let ids = Dictionary(apps.map { ($0.name, $0.id) }, uniquingKeysWith: { first, _ in first })
-        var lines = [["Date"] + (perApp ? ["App"] : []) + (split == .none ? [] : [split.title]) + ["Release"] + header]
+        var lines = [["Date"] + (perApp ? ["App"] : []) + (split == .none ? [] : [split.column]) + ["Release"] + header]
         for key in values.keys.sorted() {
             var parts = key.components(separatedBy: "\t")
             parts.append(ids[parts[1]].flatMap { released[parts[0] + $0] } ?? "")

@@ -96,6 +96,10 @@ struct SetupView: View {
                               privateKeyPEM: pem, vendorNumber: vendor.trimmingCharacters(in: .whitespaces))
         do {
             try await dashboard.connect(account)
+        } catch ASCError.http(401, _) {
+            error = String(localized: "Apple didn't accept the key. Check the Issuer ID, the Key ID and the .p8 file.")
+        } catch let failure as URLError {
+            error = failure.localizedDescription
         } catch {
             self.error = String(describing: error)
         }

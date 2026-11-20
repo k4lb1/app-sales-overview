@@ -30,7 +30,7 @@ struct ExploreView: View {
                         "Nothing to show yet", systemImage: "chart.bar",
                         description: Text(metric.isStore
                                           ? "Apple's store analytics arrive a day or two after the sales, the first ones one to two days after you connect."
-                                          : "There's nothing for \(metric.title.lowercased()) in this period."))
+                                          : "There's nothing for \(Self.inSentence(metric.title)) in this period."))
                         .frame(maxWidth: .infinity).card()
                 } else {
                     chart(exploration)
@@ -110,7 +110,7 @@ struct ExploreView: View {
     private func ranking(_ exploration: Exploration) -> some View {
         let largest = exploration.totals.first?.value ?? 1
         return VStack(alignment: .leading, spacing: 10) {
-            Text("By \(split.title.lowercased())").font(.headline)
+            Text("By \(Self.inSentence(split.title))").font(.headline)
             ForEach(exploration.totals.prefix(20), id: \.group) { entry in
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
@@ -170,7 +170,12 @@ struct ExploreView: View {
     }
 
     private var fileName: String {
-        split == .none ? "App Sales \(period) days" : "App Sales by \(split.title.lowercased()) \(period) days"
+        split == .none ? "App Sales \(period) days" : "App Sales by \(split.column.lowercased()) \(period) days"
+    }
+
+    /// Lowercased inside a sentence, except in German, where nouns keep their capital.
+    private static func inSentence(_ title: String) -> String {
+        Bundle.main.preferredLocalizations.first == "de" ? title : title.lowercased()
     }
 
     /// Silver to grey, light at the bottom of each bar, so the largest group stands out.

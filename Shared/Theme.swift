@@ -47,10 +47,12 @@ struct StatePill: View {
             Text(version.string).monospacedDigit()
             Text(state.title)
         }
+        .lineLimit(1)
         .font(.caption.weight(.medium))
         .foregroundStyle(Color.ink)
         .padding(.horizontal, 9).padding(.vertical, 4)
         .background(state.color.opacity(0.18), in: .capsule)
+        .fixedSize()
     }
 }
 

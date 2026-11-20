@@ -164,7 +164,7 @@ public struct Figures: Sendable {
 
     public func sources(days count: Int, app: StoreApp? = nil) -> [(source: String, counts: Int)] {
         discoveryRows(count, app: app).filter { $0.event != "Tap" }
-            .reduce(into: [String: Int]()) { $0[$1.sourceType.isEmpty ? "Unavailable" : $1.sourceType, default: 0] += $1.counts }
+            .reduce(into: [String: Int]()) { $0[Self.sourceName($1.sourceType), default: 0] += $1.counts }
             .map { ($0.key, $0.value) }.sorted { $0.counts > $1.counts }
     }
 
@@ -319,6 +319,18 @@ public struct Figures: Sendable {
 
     public static func countryName(_ code: String) -> String {
         code.count == 2 ? Locale.current.localizedString(forRegionCode: code) ?? code : code
+    }
+
+    /// Apple's source types in the user's language; ones not known here stay as Apple writes them.
+    public static func sourceName(_ type: String) -> String {
+        switch type {
+        case "": String(localized: "Unavailable")
+        case "App Store search": String(localized: "App Store search")
+        case "App Store browse": String(localized: "App Store browse")
+        case "Web referrer": String(localized: "Web referrer")
+        case "App referrer": String(localized: "App referrer")
+        default: type
+        }
     }
 
     public static func units(_ rows: [SalesRow]) -> (downloads: Int, updates: Int, redownloads: Int, refunds: Int) {

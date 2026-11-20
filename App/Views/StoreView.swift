@@ -35,10 +35,10 @@ struct StoreView: View {
                 Text(dashboard.analyticsError ?? String(localized: "Apple is preparing the first store analytics. They usually arrive one to two days after the first launch."))
                     .font(.callout).foregroundStyle(Color.muted)
             } else {
-                HStack(spacing: 0) {
-                    step("Impressions", "\(figures.impressions(days: period))")
-                    step("Page views", "\(figures.pageViews(days: period))")
-                    step("Downloads", "\(figures.units(.download, days: period))")
+                HStack(spacing: 8) {
+                    step("Impressions", figures.impressions(days: period).formatted())
+                    step("Page views", figures.pageViews(days: period).formatted())
+                    step("Downloads", figures.units(.download, days: period).formatted())
                     step("Conversion", figures.conversion(days: period).map { $0.formatted(.percent.precision(.fractionLength(1))) } ?? "–")
                 }
                 let sources = figures.sources(days: period)
@@ -61,9 +61,9 @@ struct StoreView: View {
     private func step(_ title: LocalizedStringKey, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(value).font(.title3.weight(.semibold)).monospacedDigit().lineLimit(1).minimumScaleFactor(0.6)
-            Text(title).font(.caption2).foregroundStyle(Color.muted).lineLimit(1).minimumScaleFactor(0.8)
+            Text(title).font(.caption2).foregroundStyle(Color.muted).lineLimit(1).minimumScaleFactor(0.6)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
     }
 
     private var atApple: some View {

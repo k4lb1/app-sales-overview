@@ -49,11 +49,11 @@ struct OverviewView: View {
         let proceeds = figures.proceedsTotal(days: period)
         let refunds = figures.refunds(days: period)
         return HStack(spacing: 12) {
-            figure("Downloads", "\(downloads)",
+            figure("Downloads", downloads.formatted(),
                    change: figures.change(Double(downloads), Double(figures.units(.download, days: period, previous: true)), days: period))
             figure("Proceeds", figures.proceedsText(days: period),
                    change: figures.change(proceeds, figures.proceedsTotal(days: period, previous: true), days: period),
-                   note: refunds > 0 ? "\(refunds) refunded" : nil)
+                   note: refunds > 0 ? String(localized: "\(refunds) refunded") : nil)
         }
     }
 
@@ -112,8 +112,8 @@ struct OverviewView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Subscriptions").font(.headline)
                 HStack(spacing: 0) {
-                    stat("Active", "\(figures.activeSubscriptions())")
-                    stat("In trial", "\(figures.trials())")
+                    stat("Active", figures.activeSubscriptions().formatted())
+                    stat("In trial", figures.trials().formatted())
                     stat("Per month", figures.monthlyRecurring().formatted(.currency(code: DisplayCurrency.current).precision(.fractionLength(0))))
                 }
                 Text("Active subscriptions as of Apple's newest report. Per month: what the paid ones bring in at their standard price.")
@@ -138,7 +138,8 @@ struct OverviewView: View {
                 .chartYAxis { AxisMarks(position: .leading) }
                 .frame(height: 140)
                 let total = monthly.reduce(0) { $0 + $1.proceeds }
-                Text("\(monthly.reduce(0) { $0 + $1.downloads }) downloads · \(total.formatted(.currency(code: DisplayCurrency.current)))")
+                let downloads = String(localized: "\(monthly.reduce(0) { $0 + $1.downloads }) downloads")
+                Text(verbatim: "\(downloads) · \(total.formatted(.currency(code: DisplayCurrency.current)))")
                     .font(.caption).foregroundStyle(Color.muted)
                 Button("Monthly statement", systemImage: "doc.text") { showsStatement = true }
                     .font(.callout)
@@ -198,8 +199,18 @@ struct ChangeLabel: View {
 
     var body: some View {
         let up = change >= 0
-        Text("\(up ? "▲" : "▼") \(abs(change).formatted(.percent.precision(.fractionLength(0))))")
+        let percent = abs(change).formatted(.percent.precision(.fractionLength(0)))
+        Text(verbatim: "\(up ? "▲" : "▼") \(percent)")
             .foregroundStyle(up ? Color.green : Color.red)
-            .accessibilityLabel("\(up ? "Up" : "Down") \(abs(change).formatted(.percent.precision(.fractionLength(0)))) on the \(period == 1 ? "day" : "\(period) days") before")
+            .accessibilityLabel(spoken(up: up, percent: percent))
+    }
+
+    private func spoken(up: Bool, percent: String) -> LocalizedStringKey {
+        switch (up, period == 1) {
+        case (true, true): "Up \(percent) on the day before"
+        case (true, false): "Up \(percent) on the \(period) days before"
+        case (false, true): "Down \(percent) on the day before"
+        case (false, false): "Down \(percent) on the \(period) days before"
+        }
     }
 }
