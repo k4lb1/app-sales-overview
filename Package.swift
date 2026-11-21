@@ -3,7 +3,7 @@ import PackageDescription
 
 /// ASCKit is the App Store Connect API client shared by the apps.
 /// PlayKit reads Google Play (service account, report files, reviews, crash rates) for the Mac app.
-/// asc-peek is a command-line tool that prints the raw App Store Connect responses for a configured API key.
+/// asc-peek is a command-line tool that reads and changes App Store Connect data with a configured API key.
 let package = Package(
     name: "AppSales",
     platforms: [.macOS(.v15), .iOS(.v26)],
