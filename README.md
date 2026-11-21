@@ -57,6 +57,8 @@ open AppSales.xcodeproj
 Set your own team and bundle identifiers in the project (the app, the widget and the App Group
 `group.<your bundle ID>`), then build the `AppSales` scheme.
 
+<img src="docs/asc-peek.svg" alt="asc-peek logo: data suspended in aspic" width="72" align="right">
+
 The App Store Connect client lives in `Sources/ASCKit` and is also a Swift package. `asc-peek` is a small
 command-line tool on top of it that prints what Apple returns for your key:
 
