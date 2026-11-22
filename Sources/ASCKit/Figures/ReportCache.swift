@@ -65,23 +65,22 @@ public enum ReportCache {
         }
         try await withThrowingTaskGroup(of: (String, [SalesRow]?).self) { group in
             var queue = missing[...]
-            func next() {
-                guard let day = queue.popFirst() else { return }
-                group.addTask {
-                    do { return (day, try await client.salesReport(vendor: vendor, day: day)) }
-                    catch SalesReportError.notYet { return (day, nil) }
-                }
-            }
-            for _ in 0..<6 { next() }
-            for try await (day, rows) in group {
+            for day in queue.prefix(6) { group.addTask { try await fetch(day, client: client, vendor: vendor) } }
+            queue = queue.dropFirst(6)
+            while let (day, rows) = try await group.next() {
                 if let rows {
                     result[day] = rows
                     save(rows, for: day)
                 }
-                next()
+                if let day = queue.popFirst() { group.addTask { try await fetch(day, client: client, vendor: vendor) } }
             }
         }
         return result
+    }
+
+    private static func fetch(_ day: String, client: Client, vendor: String) async throws -> (String, [SalesRow]?) {
+        do { return (day, try await client.salesReport(vendor: vendor, day: day)) }
+        catch SalesReportError.notYet { return (day, nil) }
     }
 }
 
@@ -224,29 +223,28 @@ public enum SubscriptionCache {
         }
         try await withThrowingTaskGroup(of: (String, SubscriptionDay?).self) { group in
             var queue = missing[...]
-            func next() {
-                guard let day = queue.popFirst() else { return }
-                group.addTask {
-                    do {
-                        async let rows = client.subscriptionReport(vendor: vendor, day: day)
-                        async let events = client.subscriptionEvents(vendor: vendor, day: day)
-                        return (day, SubscriptionDay(rows: try await rows, events: try await events))
-                    } catch SalesReportError.notYet {
-                        return (day, nil)
-                    }
-                }
-            }
-            for _ in 0..<6 { next() }
-            for try await (day, stored) in group {
+            for day in queue.prefix(6) { group.addTask { try await fetch(day, client: client, vendor: vendor) } }
+            queue = queue.dropFirst(6)
+            while let (day, stored) = try await group.next() {
                 if let stored {
                     result[day] = stored
                     if let data = try? JSONEncoder().encode(stored) {
                         try? data.write(to: folder.appending(path: "\(day).json"), options: .atomic)
                     }
                 }
-                next()
+                if let day = queue.popFirst() { group.addTask { try await fetch(day, client: client, vendor: vendor) } }
             }
         }
         return result
+    }
+
+    private static func fetch(_ day: String, client: Client, vendor: String) async throws -> (String, SubscriptionDay?) {
+        do {
+            async let rows = client.subscriptionReport(vendor: vendor, day: day)
+            async let events = client.subscriptionEvents(vendor: vendor, day: day)
+            return (day, SubscriptionDay(rows: try await rows, events: try await events))
+        } catch SalesReportError.notYet {
+            return (day, nil)
+        }
     }
 }
