@@ -59,7 +59,7 @@ public struct Client: Sendable {
         try await send("POST", path, json: body)
     }
 
-    /// Changes a resource; `asc-peek` uses it for store texts.
+    /// Changes a resource, e.g. store texts.
     public func patch(_ path: String, json body: [String: Any]) async throws -> Data {
         try await send("PATCH", path, json: body)
     }
